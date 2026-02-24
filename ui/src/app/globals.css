@@ -1,0 +1,219 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: #ffffff;
+  --background: #0a0a0a;
+  --primary: #10B981;
+  --primary-glow: rgba(16, 185, 129, 0.5);
+  --neon-green: #00ff88;
+  --neon-glow: rgba(0, 255, 136, 0.6);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Neon Text Effect */
+.neon-text {
+  text-shadow: 
+    0 0 5px var(--neon-green),
+    0 0 10px var(--neon-green),
+    0 0 20px var(--neon-glow),
+    0 0 40px var(--neon-glow);
+}
+
+.neon-text-subtle {
+  text-shadow: 
+    0 0 5px var(--primary-glow),
+    0 0 10px var(--primary-glow);
+}
+
+/* Neon Border Effect */
+.neon-border {
+  box-shadow: 
+    0 0 5px var(--primary),
+    0 0 10px var(--primary-glow),
+    inset 0 0 5px var(--primary-glow);
+}
+
+.neon-border:hover {
+  box-shadow: 
+    0 0 10px var(--neon-green),
+    0 0 20px var(--neon-glow),
+    0 0 30px var(--neon-glow),
+    inset 0 0 10px var(--neon-glow);
+}
+
+/* Neon Card Glow on Hover */
+.neon-card {
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.neon-card:hover {
+  border-color: var(--primary);
+  box-shadow: 
+    0 0 10px var(--primary-glow),
+    0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+/* Animated Gradient Background */
+.gradient-bg {
+  background: linear-gradient(-45deg, #0a0a0a, #1a1a1a, #0f1f1a, #0a0a0a);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Pulse Glow Animation */
+@keyframes pulseGlow {
+  0%, 100% { 
+    box-shadow: 0 0 5px var(--primary), 0 0 10px var(--primary-glow);
+  }
+  50% { 
+    box-shadow: 0 0 15px var(--neon-green), 0 0 30px var(--neon-glow);
+  }
+}
+
+.pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2d2d2d;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Product card hover effect */
+.product-card {
+  transition: all 0.3s ease;
+  background: rgba(30, 30, 30, 0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.product-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--primary);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    0 0 20px var(--primary-glow);
+}
+
+/* Button styles */
+.btn-primary {
+  @apply bg-primary-500 text-white font-medium py-3 px-6 transition-all duration-300;
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.btn-primary:hover {
+  @apply bg-primary-400;
+  box-shadow: 0 0 20px var(--neon-glow), 0 0 40px var(--neon-glow);
+}
+
+.btn-secondary {
+  @apply border border-primary-500 text-primary-500 font-medium py-3 px-6 transition-all duration-300;
+}
+
+.btn-secondary:hover {
+  @apply bg-primary-500 text-white;
+  box-shadow: 0 0 15px var(--primary-glow);
+}
+
+/* Sale badge */
+.sale-badge {
+  @apply absolute bottom-4 left-4 bg-primary-500 text-white text-sm px-3 py-1 rounded;
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+
+/* Glass morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Quantity selector */
+.quantity-selector {
+  @apply flex items-center border border-gray-700 rounded-lg overflow-hidden;
+}
+
+.quantity-selector button {
+  @apply px-4 py-2 text-xl text-gray-300 hover:bg-primary-500 hover:text-white transition-colors;
+}
+
+.quantity-selector input {
+  @apply w-16 text-center bg-transparent border-x border-gray-700 text-white;
+}
+
+/* Logo style */
+.logo-glow {
+  text-shadow: 0 0 10px var(--neon-glow);
+}
+
+/* Dark container styles */
+.dark-container {
+  background: linear-gradient(180deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Announcement bar animation */
+.announcement-bar {
+  background: linear-gradient(90deg, var(--primary) 0%, #059669 50%, var(--primary) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Section divider */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+}
+
+/* Hover link underline effect */
+.hover-underline {
+  position: relative;
+}
+
+.hover-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--primary);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 5px var(--primary-glow);
+}
+
+.hover-underline:hover::after {
+  width: 100%;
+}
