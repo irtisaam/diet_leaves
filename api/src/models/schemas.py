@@ -263,6 +263,9 @@ class Order(BaseModel):
     shipping_address: str
     shipping_city: str
     shipping_country: str
+    shipping_postal_code: Optional[str] = None
+    billing_address: Optional[str] = None
+    billing_city: Optional[str] = None
     subtotal: Decimal
     shipping_cost: Decimal
     discount_amount: Decimal
@@ -272,6 +275,8 @@ class Order(BaseModel):
     status: str
     tracking_number: Optional[str] = None
     shipping_carrier: Optional[str] = None
+    admin_notes: Optional[str] = None
+    customer_notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     items: List[OrderItem] = []
@@ -293,16 +298,39 @@ class ReviewCreate(BaseModel):
     customer_name: Optional[str] = None
     customer_email: Optional[EmailStr] = None
 
+class ReviewUpdate(BaseModel):
+    rating: Optional[int] = Field(None, ge=1, le=5)
+    title: Optional[str] = None
+    review_text: Optional[str] = None
+    is_approved: Optional[bool] = None
+    is_active: Optional[bool] = None
+    is_featured: Optional[bool] = None
+    sort_order: Optional[int] = None
+
 class Review(BaseModel):
     id: UUID
     product_id: UUID
     user_id: Optional[UUID] = None
     customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
     rating: int
     title: Optional[str] = None
     review_text: Optional[str] = None
     is_verified_purchase: bool = False
+    is_approved: bool = False
+    is_active: bool = True
+    is_featured: bool = False
+    sort_order: int = 0
     created_at: datetime
+    updated_at: Optional[datetime] = None
+    # Optional fields for homepage display
+    product_name: Optional[str] = None
+    product_slug: Optional[str] = None
+
+class ReviewList(BaseModel):
+    reviews: List[Review]
+    total: int
+    average_rating: float = 0.0
 
 
 # ===========================================
@@ -331,7 +359,7 @@ class HeroSectionCreate(BaseModel):
     title: Optional[str] = None
     subtitle: Optional[str] = None
     media_type: str = "image"
-    media_url: str
+    media_url: Optional[str] = None
     media_width: int = 1920
     media_height: int = 1080
     link_url: Optional[str] = None
@@ -356,7 +384,7 @@ class HeroSection(BaseModel):
     title: Optional[str] = None
     subtitle: Optional[str] = None
     media_type: str
-    media_url: str
+    media_url: Optional[str] = None
     media_width: int
     media_height: int
     link_url: Optional[str] = None
@@ -373,7 +401,7 @@ class HeroSection(BaseModel):
 class BannerCreate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    image_url: str
+    image_url: Optional[str] = None
     image_width: int = 1200
     image_height: int = 400
     link_url: Optional[str] = None
@@ -396,7 +424,7 @@ class Banner(BaseModel):
     id: UUID
     title: Optional[str] = None
     description: Optional[str] = None
-    image_url: str
+    image_url: Optional[str] = None
     image_width: int
     image_height: int
     link_url: Optional[str] = None

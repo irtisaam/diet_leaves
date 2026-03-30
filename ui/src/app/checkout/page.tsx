@@ -199,7 +199,7 @@ export default function CheckoutPage() {
                       <p className="text-sm text-gray-500">( BarqRaftar & PostEx )</p>
                     </div>
                     <span className="font-medium text-gray-900">
-                      {cart.subtotal >= 2000 ? 'FREE' : `Rs ${cart.shipping.toFixed(0)}`}
+                      {Number(cart.subtotal || 0) >= 2000 ? 'FREE' : `Rs ${Number(cart.shipping || 0).toFixed(0)}`}
                     </span>
                   </div>
                 </div>
@@ -316,7 +316,7 @@ export default function CheckoutPage() {
                     <p className="text-gray-900 font-medium">{item.product?.name}</p>
                   </div>
                   <div className="text-gray-900">
-                    Rs {((item.product?.price || 0) * item.quantity).toFixed(0)}
+                    Rs {(Number(item.product?.price || 0) * item.quantity).toFixed(0)}
                   </div>
                 </div>
               ))}
@@ -338,17 +338,17 @@ export default function CheckoutPage() {
             <div className="space-y-2 pt-4 border-t">
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal</span>
-                <span>Rs {cart.subtotal.toFixed(0)}</span>
+                <span>Rs {Number(cart.subtotal || 0).toFixed(0)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Shipping</span>
-                <span>{cart.shipping === 0 ? 'FREE' : `Rs ${cart.shipping.toFixed(0)}`}</span>
+                <span>{Number(cart.shipping || 0) === 0 ? 'FREE' : `Rs ${Number(cart.shipping || 0).toFixed(0)}`}</span>
               </div>
               <div className="flex justify-between text-xl font-bold text-gray-900 pt-4">
                 <span>Total</span>
                 <span>
                   <span className="text-sm font-normal text-gray-500 mr-2">PKR</span>
-                  Rs {cart.total.toFixed(0)}
+                  Rs {Number(cart.total || 0).toFixed(0)}
                 </span>
               </div>
             </div>

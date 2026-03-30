@@ -110,9 +110,12 @@ export default function AdminOrdersPage() {
                       {order.status}
                     </span>
                     <span className="text-white font-semibold">Rs. {order.total}</span>
-                    <button className="p-2 rounded-lg bg-dark-200 hover:bg-dark-300 transition-colors">
+                    <Link 
+                      href={`/admin/orders/${order.id}`}
+                      className="p-2 rounded-lg bg-dark-200 hover:bg-dark-300 transition-colors"
+                    >
                       <Eye className="h-4 w-4 text-gray-400" />
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>

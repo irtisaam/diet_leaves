@@ -79,7 +79,7 @@ export default function CartDrawer() {
                         {item.product?.name || 'Product'}
                       </h3>
                       <p className="text-gray-400 text-sm">
-                        Rs.{item.product?.price?.toFixed(0) || 0}
+                        Rs.{Number(item.product?.price || 0).toFixed(0)}
                       </p>
 
                       {/* Quantity Controls */}
@@ -116,7 +116,7 @@ export default function CartDrawer() {
 
                     {/* Item Total */}
                     <div className="text-white font-medium">
-                      Rs.{((item.product?.price || 0) * item.quantity).toFixed(0)}
+                      Rs.{(Number(item.product?.price || 0) * item.quantity).toFixed(0)}
                     </div>
                   </div>
                 ))}
@@ -130,7 +130,7 @@ export default function CartDrawer() {
               {/* Estimated Total */}
               <div className="flex justify-between items-center">
                 <span className="text-white font-medium">Estimated total</span>
-                <span className="text-white font-bold">Rs.{cart.subtotal.toFixed(0)} PKR</span>
+                <span className="text-white font-bold">Rs.{Number(cart.subtotal || 0).toFixed(0)} PKR</span>
               </div>
               
               <p className="text-gray-400 text-sm">

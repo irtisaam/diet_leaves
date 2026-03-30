@@ -9,23 +9,26 @@ module.exports = {
     extend: {
       colors: {
         primary: {
+          DEFAULT: '#10B981',
+          light: '#34D399',
           50: '#f0fdf4',
           100: '#dcfce7',
           200: '#bbf7d0',
           300: '#86efac',
           400: '#4ade80',
-          500: '#22c55e',
-          600: '#16a34a',
-          700: '#15803d',
-          800: '#166534',
-          900: '#14532d',
+          500: '#10B981',
+          600: '#059669',
+          700: '#047857',
+          800: '#065f46',
+          900: '#064e3b',
         },
         dark: {
-          DEFAULT: '#1a1a1a',
-          100: '#2d2d2d',
-          200: '#3d3d3d',
-          300: '#4d4d4d',
-        }
+          DEFAULT: '#0a0a0a',
+          100: '#111111',
+          200: '#1a1a1a',
+          300: '#2d2d2d',
+        },
+        'neon-green': '#39ff14',
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],

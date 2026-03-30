@@ -5,10 +5,13 @@
 :root {
   --foreground: #ffffff;
   --background: #0a0a0a;
+  /* --theme-primary is set at runtime by layout.tsx from site_settings.primary_color */
+  --theme-primary: #10B981;
+  --theme-primary-rgb: 16, 185, 129;
+  --color-primary: 16 185 129;
   --primary: #10B981;
-  --primary-glow: rgba(16, 185, 129, 0.5);
-  --neon-green: #00ff88;
-  --neon-glow: rgba(0, 255, 136, 0.6);
+  --primary-light: #34D399;
+  --accent: #22c55e;
 }
 
 body {
@@ -17,80 +20,9 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* Neon Text Effect */
-.neon-text {
-  text-shadow: 
-    0 0 5px var(--neon-green),
-    0 0 10px var(--neon-green),
-    0 0 20px var(--neon-glow),
-    0 0 40px var(--neon-glow);
-}
-
-.neon-text-subtle {
-  text-shadow: 
-    0 0 5px var(--primary-glow),
-    0 0 10px var(--primary-glow);
-}
-
-/* Neon Border Effect */
-.neon-border {
-  box-shadow: 
-    0 0 5px var(--primary),
-    0 0 10px var(--primary-glow),
-    inset 0 0 5px var(--primary-glow);
-}
-
-.neon-border:hover {
-  box-shadow: 
-    0 0 10px var(--neon-green),
-    0 0 20px var(--neon-glow),
-    0 0 30px var(--neon-glow),
-    inset 0 0 10px var(--neon-glow);
-}
-
-/* Neon Card Glow on Hover */
-.neon-card {
-  transition: all 0.3s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.neon-card:hover {
-  border-color: var(--primary);
-  box-shadow: 
-    0 0 10px var(--primary-glow),
-    0 0 20px rgba(16, 185, 129, 0.2);
-}
-
-/* Animated Gradient Background */
-.gradient-bg {
-  background: linear-gradient(-45deg, #0a0a0a, #1a1a1a, #0f1f1a, #0a0a0a);
-  background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
-}
-
-@keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Pulse Glow Animation */
-@keyframes pulseGlow {
-  0%, 100% { 
-    box-shadow: 0 0 5px var(--primary), 0 0 10px var(--primary-glow);
-  }
-  50% { 
-    box-shadow: 0 0 15px var(--neon-green), 0 0 30px var(--neon-glow);
-  }
-}
-
-.pulse-glow {
-  animation: pulseGlow 2s ease-in-out infinite;
-}
-
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -98,122 +30,205 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2d2d2d;
-  border-radius: 4px;
+  background: #333;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+  background: #555;
 }
 
-/* Product card hover effect */
+/* Neon glow effects - use CSS variable so they respect the dynamic primary color */
+.neon-text {
+  text-shadow: 0 0 20px rgb(var(--color-primary) / 0.4),
+               0 0 40px rgb(var(--color-primary) / 0.2);
+}
+
+.neon-text-subtle {
+  text-shadow: 0 0 15px rgb(var(--color-primary) / 0.3);
+}
+
+.neon-border {
+  box-shadow: 0 0 15px rgb(var(--color-primary) / 0.3),
+              inset 0 0 15px rgb(var(--color-primary) / 0.1);
+}
+
+.neon-glow {
+  box-shadow: 0 0 30px rgb(var(--color-primary) / 0.4);
+}
+
+/* Product card - with subtle glow */
 .product-card {
   transition: all 0.3s ease;
-  background: rgba(30, 30, 30, 0.5);
-  backdrop-filter: blur(10px);
+  background: linear-gradient(145deg, #111111, #0a0a0a);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .product-card:hover {
   transform: translateY(-8px);
-  border-color: var(--primary);
-  box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.4),
-    0 0 20px var(--primary-glow);
+  box-shadow: 0 20px 40px rgb(var(--color-primary) / 0.15);
+  border-color: rgb(var(--color-primary) / 0.3);
 }
 
-/* Button styles */
+/* Buttons - with glow effect */
 .btn-primary {
-  @apply bg-primary-500 text-white font-medium py-3 px-6 transition-all duration-300;
-  box-shadow: 0 0 10px var(--primary-glow);
+  @apply bg-primary text-black font-medium py-3 px-6 rounded-lg transition-all duration-200;
+  box-shadow: 0 0 20px rgb(var(--color-primary) / 0.3);
 }
 
 .btn-primary:hover {
-  @apply bg-primary-400;
-  box-shadow: 0 0 20px var(--neon-glow), 0 0 40px var(--neon-glow);
+  @apply bg-primary-light;
+  box-shadow: 0 0 30px rgb(var(--color-primary) / 0.5);
+}
+
+.btn-outline {
+  @apply border border-primary text-primary font-medium py-3 px-6 rounded-lg transition-all duration-200;
+}
+
+.btn-outline:hover {
+  @apply bg-primary text-black;
+  box-shadow: 0 0 20px rgb(var(--color-primary) / 0.3);
 }
 
 .btn-secondary {
-  @apply border border-primary-500 text-primary-500 font-medium py-3 px-6 transition-all duration-300;
+  @apply border border-white/30 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200;
 }
 
 .btn-secondary:hover {
-  @apply bg-primary-500 text-white;
-  box-shadow: 0 0 15px var(--primary-glow);
+  @apply bg-white/10 border-white/50;
 }
 
 /* Sale badge */
 .sale-badge {
-  @apply absolute bottom-4 left-4 bg-primary-500 text-white text-sm px-3 py-1 rounded;
-  box-shadow: 0 0 10px var(--primary-glow);
-}
-
-/* Glass morphism */
-.glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  @apply absolute top-3 left-3 bg-red-500 text-white text-xs px-2 py-1 rounded;
 }
 
 /* Quantity selector */
 .quantity-selector {
-  @apply flex items-center border border-gray-700 rounded-lg overflow-hidden;
+  @apply flex items-center bg-dark-100 rounded-lg;
 }
 
 .quantity-selector button {
-  @apply px-4 py-2 text-xl text-gray-300 hover:bg-primary-500 hover:text-white transition-colors;
+  @apply px-4 py-2 text-lg text-white hover:bg-dark-200 transition-colors rounded;
 }
 
 .quantity-selector input {
-  @apply w-16 text-center bg-transparent border-x border-gray-700 text-white;
+  @apply w-16 text-center bg-transparent text-white;
 }
 
-/* Logo style */
-.logo-glow {
-  text-shadow: 0 0 10px var(--neon-glow);
-}
-
-/* Dark container styles */
-.dark-container {
-  background: linear-gradient(180deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-/* Announcement bar animation */
+/* Announcement bar */
 .announcement-bar {
-  background: linear-gradient(90deg, var(--primary) 0%, #059669 50%, var(--primary) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 3s linear infinite;
+  @apply bg-primary text-black text-sm py-2 text-center font-medium tracking-wide;
 }
 
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+/* Nav link with glow on hover */
+.nav-link {
+  @apply text-gray-300 hover:text-primary transition-colors duration-200;
 }
 
-/* Section divider */
-.section-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+/* Form inputs - dark style */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="password"],
+input[type="tel"],
+textarea,
+select {
+  @apply bg-dark-100 border border-dark-200 rounded-lg text-white placeholder-gray-500;
+  @apply focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all;
 }
 
-/* Hover link underline effect */
-.hover-underline {
-  position: relative;
+/* Card styles */
+.card {
+  @apply bg-dark-100 border border-dark-200 rounded-xl;
 }
 
-.hover-underline::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 0;
-  height: 2px;
-  background: var(--primary);
-  transition: width 0.3s ease;
-  box-shadow: 0 0 5px var(--primary-glow);
+/* Background helpers */
+.bg-dark {
+  background-color: #0a0a0a;
 }
 
-.hover-underline:hover::after {
-  width: 100%;
+.bg-dark-100 {
+  background-color: #111111;
+}
+
+.bg-dark-200 {
+  background-color: #1a1a1a;
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, var(--theme-primary), #059669);
+}
+
+.gradient-dark {
+  background: linear-gradient(180deg, #0a0a0a 0%, #111111 100%);
+}
+
+/* ========================================================
+   DYNAMIC THEME OVERRIDES
+   These override Tailwind's compile-time colors at runtime
+   using the --theme-primary CSS variable from layout.tsx
+   ======================================================== */
+
+/* Background */
+.bg-primary,
+.bg-primary-500 {
+  background-color: var(--theme-primary) !important;
+}
+.bg-primary-600,
+.hover\:bg-primary-600:hover {
+  background-color: var(--theme-primary) !important;
+  filter: brightness(0.85);
+}
+.hover\:bg-primary:hover,
+.hover\:bg-primary-500:hover {
+  background-color: var(--theme-primary) !important;
+  filter: brightness(0.9);
+}
+
+/* Text */
+.text-primary,
+.text-primary-500 {
+  color: var(--theme-primary) !important;
+}
+.hover\:text-primary:hover,
+.hover\:text-primary-500:hover {
+  color: var(--theme-primary) !important;
+}
+
+/* Border */
+.border-primary,
+.border-primary-500 {
+  border-color: var(--theme-primary) !important;
+}
+.hover\:border-primary:hover {
+  border-color: var(--theme-primary) !important;
+}
+
+/* Focus ring */
+.focus\:border-primary\/50:focus {
+  border-color: var(--theme-primary) !important;
+}
+.focus\:ring-primary\/30:focus {
+  --tw-ring-color: var(--theme-primary) !important;
+}
+
+/* Announcement bar and buttons that use bg-primary */
+.announcement-bar {
+  background-color: var(--theme-primary) !important;
+}
+.btn-primary {
+  background-color: var(--theme-primary) !important;
+  box-shadow: 0 0 20px rgb(var(--color-primary) / 0.3);
+}
+.btn-outline {
+  border-color: var(--theme-primary) !important;
+  color: var(--theme-primary) !important;
+}
+.btn-outline:hover {
+  background-color: var(--theme-primary) !important;
+}
+.nav-link:hover {
+  color: var(--theme-primary) !important;
 }

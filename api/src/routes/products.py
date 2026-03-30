@@ -9,6 +9,7 @@ from ..models.schemas import (
     Category, CategoryCreate, Review, ReviewCreate
 )
 from ..utils.database import supabase
+from ..utils.cache import get_cached, set_cached, get_cache_key
 
 router = APIRouter()
 
@@ -28,6 +29,17 @@ async def get_products(
 ):
     """Get all products with pagination and filters"""
     try:
+        # Generate cache key based on params
+        cache_key = get_cache_key("products", {
+            "page": page, "limit": limit, "category": category,
+            "featured": featured, "on_sale": on_sale, "search": search
+        })
+        
+        # Check cache first (5 minute TTL for listing)
+        cached = get_cached(cache_key, ttl=300)
+        if cached:
+            return ProductList(**cached)
+        
         query = supabase.table("products").select("*, product_images(*), product_variants(*)").eq("is_active", True)
         
         if category:
@@ -61,7 +73,10 @@ async def get_products(
             p["variants"] = p.pop("product_variants", [])
             products.append(Product(**p))
         
-        return ProductList(products=products, total=total, page=page, limit=limit)
+        result = ProductList(products=products, total=total, page=page, limit=limit)
+        # Cache the result
+        set_cached(cache_key, result.model_dump())
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -70,6 +85,12 @@ async def get_products(
 async def get_featured_products(limit: int = Query(6, ge=1, le=20)):
     """Get featured products for homepage"""
     try:
+        # Check cache first (10 minute TTL for featured)
+        cache_key = f"products:featured:{limit}"
+        cached = get_cached(cache_key, ttl=600)
+        if cached:
+            return [Product(**p) for p in cached]
+        
         response = supabase.table("products").select(
             "*, product_images(*), product_variants(*)"
         ).eq("is_active", True).eq("is_featured", True).limit(limit).execute()
@@ -79,6 +100,10 @@ async def get_featured_products(limit: int = Query(6, ge=1, le=20)):
             p["images"] = p.pop("product_images", [])
             p["variants"] = p.pop("product_variants", [])
             products.append(Product(**p))
+        
+        # Cache the result
+        set_cached(cache_key, [p.model_dump() for p in products])
+        return products
         
         return products
     except Exception as e:
@@ -108,6 +133,12 @@ async def get_sale_products(limit: int = Query(6, ge=1, le=20)):
 async def get_product(slug: str):
     """Get product by slug"""
     try:
+        # Check cache first (5 minute TTL)
+        cache_key = f"product:{slug}"
+        cached = get_cached(cache_key, ttl=300)
+        if cached:
+            return Product(**cached)
+        
         response = supabase.table("products").select(
             "*, product_images(*), product_variants(*)"
         ).eq("slug", slug).eq("is_active", True).single().execute()
@@ -119,7 +150,10 @@ async def get_product(slug: str):
         data["images"] = data.pop("product_images", [])
         data["variants"] = data.pop("product_variants", [])
         
-        return Product(**data)
+        product = Product(**data)
+        # Cache the result
+        set_cached(cache_key, product.model_dump())
+        return product
     except HTTPException:
         raise
     except Exception as e:

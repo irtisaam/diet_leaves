@@ -44,7 +44,8 @@ async def create_order(order: OrderCreate, x_session_id: Optional[str] = Header(
                 "product_name": product.data["name"],
                 "quantity": item.quantity,
                 "unit_price": float(item.unit_price),
-                "total_price": float(item_total)
+                "total_price": float(item_total),
+                "current_stock": product.data["stock_quantity"]  # Store for stock update
             })
         
         # Get shipping cost from settings
@@ -97,14 +98,14 @@ async def create_order(order: OrderCreate, x_session_id: Optional[str] = Header(
         
         # Create order items
         for item_data in order_items_data:
+            current_stock = item_data.pop("current_stock")  # Remove from insert data
             item_data["order_id"] = order_id
             supabase.table("order_items").insert(item_data).execute()
             
-            # Update stock
+            # Update stock using the stored value
+            new_stock = current_stock - item_data["quantity"]
             supabase.table("products").update({
-                "stock_quantity": supabase.table("products").select("stock_quantity").eq(
-                    "id", item_data["product_id"]
-                ).single().execute().data["stock_quantity"] - item_data["quantity"]
+                "stock_quantity": new_stock
             }).eq("id", item_data["product_id"]).execute()
         
         # Clear cart

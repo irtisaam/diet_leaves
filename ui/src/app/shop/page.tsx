@@ -34,12 +34,15 @@ export default function ShopPage() {
   return (
     <div className="min-h-screen bg-dark py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-bold text-white text-center mb-12">Shop All Products</h1>
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-white mb-4 neon-text-subtle">Shop All Products</h1>
+          <p className="text-gray-400">Browse our complete collection of premium stevia sweeteners</p>
+        </div>
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-dark-100 h-96 animate-pulse rounded-lg" />
+              <div key={i} className="bg-dark-100 h-96 animate-pulse rounded-xl" />
             ))}
           </div>
         ) : products.length === 0 ? (
@@ -61,7 +64,7 @@ export default function ShopPage() {
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-4 py-2 border border-dark-200 text-white disabled:opacity-50 hover:bg-dark-100"
+                  className="px-4 py-2 border border-dark-200 text-white rounded-lg disabled:opacity-50 hover:bg-dark-100 transition-colors"
                 >
                   Previous
                 </button>
@@ -70,10 +73,10 @@ export default function ShopPage() {
                   <button
                     key={i}
                     onClick={() => setPage(i + 1)}
-                    className={`px-4 py-2 border ${
+                    className={`px-4 py-2 rounded-lg transition-colors ${
                       page === i + 1 
-                        ? 'bg-white text-black border-white' 
-                        : 'border-dark-200 text-white hover:bg-dark-100'
+                        ? 'bg-primary text-black' 
+                        : 'border border-dark-200 text-white hover:bg-dark-100'
                     }`}
                   >
                     {i + 1}
@@ -83,7 +86,7 @@ export default function ShopPage() {
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-4 py-2 border border-dark-200 text-white disabled:opacity-50 hover:bg-dark-100"
+                  className="px-4 py-2 border border-dark-200 text-white rounded-lg disabled:opacity-50 hover:bg-dark-100 transition-colors"
                 >
                   Next
                 </button>

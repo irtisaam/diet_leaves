@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Edit, Trash2, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Plus, Edit, Trash2, Image as ImageIcon, X, Save, Upload, Info } from 'lucide-react'
 
 interface Banner {
   id: string
@@ -14,9 +14,26 @@ interface Banner {
   is_active: boolean
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+const emptyBanner: Partial<Banner> = {
+  title: '',
+  description: '',
+  image_url: '',
+  link_url: '',
+  position: 'home_top',
+  is_active: true
+}
+
 export default function AdminBannersPage() {
   const [banners, setBanners] = useState<Banner[]>([])
   const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<Banner | null>(null)
+  const [form, setForm] = useState<Partial<Banner>>(emptyBanner)
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchBanners()
@@ -24,7 +41,7 @@ export default function AdminBannersPage() {
 
   const fetchBanners = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/admin/banners')
+      const res = await fetch(`${API_URL}/api/admin/banners`)
       if (res.ok) {
         const data = await res.json()
         setBanners(data || [])
@@ -39,12 +56,90 @@ export default function AdminBannersPage() {
   const deleteBanner = async (id: string) => {
     if (!confirm('Delete this banner?')) return
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/banners/${id}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/admin/banners/${id}`, { method: 'DELETE' })
       if (res.ok) {
         setBanners(banners.filter(b => b.id !== id))
       }
     } catch (error) {
       console.error('Failed to delete:', error)
+    }
+  }
+
+  const openAddModal = () => {
+    setEditing(null)
+    setForm(emptyBanner)
+    setShowModal(true)
+  }
+
+  const openEditModal = (banner: Banner) => {
+    setEditing(banner)
+    setForm(banner)
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditing(null)
+    setForm(emptyBanner)
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const uploadData = new FormData()
+      uploadData.append('file', file)
+      uploadData.append('folder', 'banners')
+
+      const res = await fetch(`${API_URL}/api/admin/upload/image`, {
+        method: 'POST',
+        body: uploadData
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setForm(prev => ({ ...prev, image_url: data.url }))
+      } else {
+        alert('Failed to upload image')
+      }
+    } catch (error) {
+      console.error('Failed to upload:', error)
+      alert('Failed to upload image')
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const url = editing 
+        ? `${API_URL}/api/admin/banners/${editing.id}`
+        : `${API_URL}/api/admin/banners`
+      const method = editing ? 'PUT' : 'POST'
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+      
+      if (res.ok) {
+        await fetchBanners()
+        closeModal()
+      } else {
+        const err = await res.json()
+        alert(err.detail || 'Failed to save')
+      }
+    } catch (error) {
+      console.error('Failed to save:', error)
+      alert('Failed to save banner')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -61,7 +156,10 @@ export default function AdminBannersPage() {
               <p className="text-gray-400">Manage promotional banners</p>
             </div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors neon-border">
+          <button 
+            onClick={openAddModal}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors neon-border"
+          >
             <Plus className="h-5 w-5" />
             Add Banner
           </button>
@@ -103,7 +201,10 @@ export default function AdminBannersPage() {
                       <p className="text-gray-600 text-xs mt-2">Position: {banner.position}</p>
                     </div>
                     <div className="flex justify-end gap-2 mt-4">
-                      <button className="p-2 rounded-lg hover:bg-dark-200 transition-colors">
+                      <button 
+                        onClick={() => openEditModal(banner)}
+                        className="p-2 rounded-lg hover:bg-dark-200 transition-colors"
+                      >
                         <Edit className="h-4 w-4 text-gray-400 hover:text-primary-500" />
                       </button>
                       <button onClick={() => deleteBanner(banner.id)} className="p-2 rounded-lg hover:bg-dark-200 transition-colors">
@@ -117,6 +218,137 @@ export default function AdminBannersPage() {
           </div>
         )}
       </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-100 rounded-xl border border-gray-800 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-800">
+              <h2 className="text-xl font-bold text-white">
+                {editing ? 'Edit Banner' : 'Add Banner'}
+              </h2>
+              <button onClick={closeModal} className="p-2 hover:bg-dark-200 rounded-lg">
+                <X className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={form.title || ''}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full bg-dark-200 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  placeholder="Banner title"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Description</label>
+                <textarea
+                  value={form.description || ''}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full bg-dark-200 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  rows={2}
+                  placeholder="Banner description"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Banner Image</label>
+                <div className="space-y-2">
+                  {form.image_url ? (
+                    <div className="relative">
+                      <img src={form.image_url} alt="Banner preview" className="w-full h-32 object-cover rounded-lg border border-gray-700" />
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, image_url: '' })}
+                        className="absolute top-2 right-2 p-1 bg-red-500 rounded-full text-white hover:bg-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-32 border-2 border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary-500 transition-colors"
+                    >
+                      <Upload className="h-8 w-8 text-gray-500 mb-2" />
+                      <span className="text-gray-400 text-sm">
+                        {uploading ? 'Uploading...' : 'Click to upload image'}
+                      </span>
+                      <span className="text-gray-600 text-xs mt-1">JPEG, PNG, WebP (max 5MB)</span>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <div className="flex items-start gap-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-blue-300">
+                      Images are uploaded to Supabase Storage in the &quot;banners&quot; folder of the &quot;product-images&quot; bucket.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Link URL</label>
+                <input
+                  type="text"
+                  value={form.link_url || ''}
+                  onChange={(e) => setForm({ ...form, link_url: e.target.value })}
+                  className="w-full bg-dark-200 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  placeholder="/shop"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Position</label>
+                <select
+                  value={form.position || 'home_top'}
+                  onChange={(e) => setForm({ ...form, position: e.target.value })}
+                  className="w-full bg-dark-200 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                >
+                  <option value="home_top">Home Top</option>
+                  <option value="home_middle">Home Middle</option>
+                  <option value="home_bottom">Home Bottom</option>
+                  <option value="shop_top">Shop Top</option>
+                  <option value="sidebar">Sidebar</option>
+                </select>
+              </div>
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.is_active !== false}
+                    onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-gray-400">Active</span>
+                </label>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors"
+                >
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

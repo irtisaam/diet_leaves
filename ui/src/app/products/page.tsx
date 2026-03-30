@@ -45,17 +45,20 @@ export default function ProductsPage() {
   return (
     <div className="min-h-screen bg-dark py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-bold text-white text-center mb-8">Our Products</h1>
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-white mb-4 neon-text-subtle">Our Products</h1>
+          <p className="text-gray-400">Discover our full range of premium stevia products</p>
+        </div>
 
         {/* Category Filter */}
         {categories.length > 0 && (
           <div className="flex flex-wrap justify-center gap-4 mb-12">
             <button
               onClick={() => setSelectedCategory('')}
-              className={`px-6 py-2 rounded-full transition-colors ${
+              className={`px-6 py-2 rounded-full transition-all ${
                 selectedCategory === ''
-                  ? 'bg-white text-black'
-                  : 'border border-white text-white hover:bg-white hover:text-black'
+                  ? 'bg-primary text-black neon-glow'
+                  : 'border border-dark-200 text-white hover:border-primary'
               }`}
             >
               All
@@ -64,10 +67,10 @@ export default function ProductsPage() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.slug)}
-                className={`px-6 py-2 rounded-full transition-colors ${
+                className={`px-6 py-2 rounded-full transition-all ${
                   selectedCategory === cat.slug
-                    ? 'bg-white text-black'
-                    : 'border border-white text-white hover:bg-white hover:text-black'
+                    ? 'bg-primary text-black neon-glow'
+                    : 'border border-dark-200 text-white hover:border-primary'
                 }`}
               >
                 {cat.name}
@@ -79,7 +82,7 @@ export default function ProductsPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-dark-100 h-96 animate-pulse rounded-lg" />
+              <div key={i} className="bg-dark-100 h-96 animate-pulse rounded-xl" />
             ))}
           </div>
         ) : products.length === 0 ? (

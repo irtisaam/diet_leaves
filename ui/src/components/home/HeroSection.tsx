@@ -6,22 +6,28 @@ import Link from 'next/link'
 import { settingsAPI } from '@/lib/api'
 import { HeroSection as HeroSectionType } from '@/types'
 
-export default function HeroSection() {
-  const [heroSlides, setHeroSlides] = useState<HeroSectionType[]>([])
+interface HeroSectionProps {
+  initialData?: HeroSectionType[]
+}
+
+export default function HeroSection({ initialData }: HeroSectionProps) {
+  const [heroSlides, setHeroSlides] = useState<HeroSectionType[]>(initialData || [])
   const [currentSlide, setCurrentSlide] = useState(0)
 
   useEffect(() => {
+    // Only fetch if no initial data provided
+    if (initialData) return
+    
     const fetchHero = async () => {
       try {
         const data = await settingsAPI.getHero()
         setHeroSlides(data as HeroSectionType[])
       } catch (error) {
-        // Use default hero
         setHeroSlides([])
       }
     }
     fetchHero()
-  }, [])
+  }, [initialData])
 
   useEffect(() => {
     if (heroSlides.length <= 1) return
@@ -33,46 +39,33 @@ export default function HeroSection() {
     return () => clearInterval(interval)
   }, [heroSlides.length])
 
-  // Default hero if no slides
+  // Default hero with neon accent
   if (heroSlides.length === 0) {
     return (
-      <section className="relative h-[90vh] bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
-        {/* Animated Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-[#0f1f1a] to-[#0a0a0a]"></div>
+      <section className="relative min-h-[85vh] bg-dark flex items-center justify-center overflow-hidden">
+        {/* Animated gradient background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-br from-dark via-dark-100 to-dark" />
+          <div className="absolute top-20 left-20 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-20 right-20 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
         
-        {/* Glow Effects */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-500/20 rounded-full blur-[100px] animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] animate-pulse delay-1000"></div>
-        
-        <div className="relative text-center px-4 z-10">
-          <p className="text-primary-400 text-lg mb-4 tracking-[0.3em] uppercase">Natural Sweetness</p>
-          <h1 className="text-6xl md:text-8xl font-bold text-white mb-2 tracking-tight">
-            DIET<span className="text-primary-500 neon-text">LEAVES</span>
+        <div className="relative text-center px-4 z-10 max-w-4xl">
+          <p className="text-primary text-sm uppercase tracking-widest mb-4">Natural Sweetness</p>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 neon-text">
+            DIET<span className="text-primary">LEAVES</span>
           </h1>
-          <h2 className="text-2xl md:text-3xl text-gray-400 mb-8 font-light">
-            Zero Calories. Zero Sugar. <span className="text-primary-400">100% Natural.</span>
-          </h2>
-          <p className="text-gray-500 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
-            Experience the pure taste of premium stevia-based sweeteners. 
-            Perfect for a healthier lifestyle without compromising on taste.
+          <p className="text-gray-400 text-lg md:text-xl mb-8 max-w-2xl mx-auto">
+            Pure stevia sweetness. Zero calories. Zero guilt. The healthiest way to satisfy your sweet cravings.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/shop" className="btn-primary inline-flex items-center justify-center gap-2 rounded-lg neon-border">
+            <Link href="/shop" className="btn-primary">
               Shop Now
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
             </Link>
-            <Link href="/products" className="btn-secondary inline-flex items-center justify-center gap-2 rounded-lg">
+            <Link href="/products" className="btn-outline">
               View Products
             </Link>
           </div>
-        </div>
-        
-        {/* Decorative Elements */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center text-gray-600">
-          <span className="text-xs tracking-widest mb-2">SCROLL</span>
-          <div className="w-px h-12 bg-gradient-to-b from-primary-500 to-transparent"></div>
         </div>
       </section>
     )
@@ -81,7 +74,7 @@ export default function HeroSection() {
   const currentHero = heroSlides[currentSlide]
 
   return (
-    <section className="relative h-[80vh] overflow-hidden">
+    <section className="relative min-h-[85vh] overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0">
         {currentHero.media_type === 'video' ? (
@@ -102,27 +95,29 @@ export default function HeroSection() {
             className="object-cover"
           />
         )}
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-dark/80 via-dark/50 to-transparent" />
       </div>
 
       {/* Content */}
-      <div className="relative h-full flex items-center justify-center text-center px-4">
-        <div>
-          {currentHero.title && (
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-4">
-              {currentHero.title}
-            </h1>
-          )}
-          {currentHero.subtitle && (
-            <h2 className="text-2xl md:text-4xl text-primary-400 mb-8">
-              {currentHero.subtitle}
-            </h2>
-          )}
-          {currentHero.link_url && currentHero.link_text && (
-            <Link href={currentHero.link_url} className="btn-primary">
-              {currentHero.link_text}
-            </Link>
-          )}
+      <div className="relative h-full min-h-[85vh] flex items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="max-w-2xl">
+            {currentHero.title && (
+              <h1 className="text-5xl md:text-7xl font-bold text-white mb-4 neon-text">
+                {currentHero.title}
+              </h1>
+            )}
+            {currentHero.subtitle && (
+              <p className="text-xl text-gray-300 mb-8">
+                {currentHero.subtitle}
+              </p>
+            )}
+            {currentHero.link_url && currentHero.link_text && (
+              <Link href={currentHero.link_url} className="btn-primary">
+                {currentHero.link_text}
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
@@ -133,8 +128,8 @@ export default function HeroSection() {
             <button
               key={index}
               onClick={() => setCurrentSlide(index)}
-              className={`w-3 h-3 rounded-full transition-colors ${
-                index === currentSlide ? 'bg-white' : 'bg-white/50'
+              className={`w-3 h-3 rounded-full transition-all ${
+                index === currentSlide ? 'bg-primary w-8' : 'bg-white/50'
               }`}
             />
           ))}

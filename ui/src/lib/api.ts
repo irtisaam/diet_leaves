@@ -29,6 +29,7 @@ async function fetchAPI<T>(endpoint: string, options: FetchOptions = {}): Promis
   
   const response = await fetch(url, {
     ...fetchOptions,
+    cache: 'no-store',  // Always fetch fresh data to prevent stale nav/settings
     headers: {
       'Content-Type': 'application/json',
       'X-Session-ID': sessionId,
@@ -137,6 +138,9 @@ export const settingsAPI = {
   
   getHomepageSections: () =>
     fetchAPI('/api/settings/homepage-sections'),
+  
+  getHomepageData: () =>
+    fetchAPI('/api/settings/homepage-data'),
 }
 
 // Auth API
@@ -162,6 +166,31 @@ export const authAPI = {
   updateProfile: (data: { full_name?: string; phone?: string; address?: string; city?: string }) =>
     fetchAPI('/api/auth/me', {
       method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+}
+
+// Reviews API
+export const reviewsAPI = {
+  getFeatured: (limit: number = 6) =>
+    fetchAPI(`/api/reviews/featured`, { params: { limit } }),
+  
+  getByProduct: (productId: string, page: number = 1, limit: number = 20) =>
+    fetchAPI(`/api/reviews/${productId}`, { params: { page, limit } }),
+  
+  getStats: (productId: string) =>
+    fetchAPI(`/api/reviews/stats/${productId}`),
+  
+  create: (data: {
+    product_id: string;
+    customer_name?: string;
+    customer_email?: string;
+    rating: number;
+    title?: string;
+    review_text?: string;
+  }) =>
+    fetchAPI('/api/reviews/', {
+      method: 'POST',
       body: JSON.stringify(data),
     }),
 }

@@ -10,19 +10,23 @@ import {
   Image,
   Menu,
   Star,
-  FileText
+  FileText,
+  Tag,
+  Warehouse
 } from 'lucide-react'
 
 export default function AdminPage() {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard', description: 'Overview & Statistics' },
     { icon: Package, label: 'Products', href: '/admin/products', description: 'Manage Products' },
+    { icon: Tag, label: 'Categories', href: '/admin/categories', description: 'Product Categories' },
     { icon: ShoppingCart, label: 'Orders', href: '/admin/orders', description: 'Order Management' },
     { icon: Users, label: 'Customers', href: '/admin/customers', description: 'Customer Management' },
     { icon: Image, label: 'Hero Sections', href: '/admin/hero', description: 'Homepage Hero' },
     { icon: FileText, label: 'Banners', href: '/admin/banners', description: 'Promotional Banners' },
     { icon: Menu, label: 'Navigation', href: '/admin/navigation', description: 'Menu Items' },
     { icon: Star, label: 'Reviews', href: '/admin/reviews', description: 'Product Reviews' },
+    { icon: Warehouse, label: 'Inventory', href: '/admin/inventory', description: 'Stock & Ingredients' },
     { icon: Settings, label: 'Settings', href: '/admin/settings', description: 'Site Settings' },
   ]
 
@@ -62,6 +66,7 @@ export default function AdminPage() {
             <p className="text-sm text-gray-500">API Endpoints available:</p>
             <ul className="text-sm text-gray-400 list-disc list-inside space-y-1">
               <li>GET/POST/PUT/DELETE /api/admin/products</li>
+              <li>GET/POST/PUT/DELETE /api/admin/categories</li>
               <li>GET/PUT /api/admin/orders</li>
               <li>GET/POST/PUT/DELETE /api/admin/hero</li>
               <li>GET/POST/PUT/DELETE /api/admin/banners</li>

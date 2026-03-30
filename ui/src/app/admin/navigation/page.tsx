@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Edit, Trash2, GripVertical, Menu } from 'lucide-react'
+import { ArrowLeft, Plus, Edit, Trash2, GripVertical, Menu, X, Save } from 'lucide-react'
 
 interface NavItem {
   id: string
@@ -12,9 +12,22 @@ interface NavItem {
   is_active: boolean
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+const emptyNav: Partial<NavItem> = {
+  label: '',
+  url: '',
+  display_order: 0,
+  is_active: true
+}
+
 export default function AdminNavigationPage() {
   const [navItems, setNavItems] = useState<NavItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<NavItem | null>(null)
+  const [form, setForm] = useState<Partial<NavItem>>(emptyNav)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     fetchNavItems()
@@ -22,7 +35,7 @@ export default function AdminNavigationPage() {
 
   const fetchNavItems = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/admin/navigation')
+      const res = await fetch(`${API_URL}/api/admin/navigation`)
       if (res.ok) {
         const data = await res.json()
         setNavItems(data || [])
@@ -37,12 +50,60 @@ export default function AdminNavigationPage() {
   const deleteNavItem = async (id: string) => {
     if (!confirm('Delete this navigation item?')) return
     try {
-      const res = await fetch(`http://localhost:8000/api/admin/navigation/${id}`, { method: 'DELETE' })
+      const res = await fetch(`${API_URL}/api/admin/navigation/${id}`, { method: 'DELETE' })
       if (res.ok) {
         setNavItems(navItems.filter(n => n.id !== id))
       }
     } catch (error) {
       console.error('Failed to delete:', error)
+    }
+  }
+
+  const openAddModal = () => {
+    setEditing(null)
+    setForm({ ...emptyNav, display_order: navItems.length })
+    setShowModal(true)
+  }
+
+  const openEditModal = (item: NavItem) => {
+    setEditing(item)
+    setForm(item)
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditing(null)
+    setForm(emptyNav)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const url = editing 
+        ? `${API_URL}/api/admin/navigation/${editing.id}`
+        : `${API_URL}/api/admin/navigation`
+      const method = editing ? 'PUT' : 'POST'
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      })
+      
+      if (res.ok) {
+        await fetchNavItems()
+        closeModal()
+      } else {
+        const err = await res.json()
+        alert(err.detail || 'Failed to save')
+      }
+    } catch (error) {
+      console.error('Failed to save:', error)
+      alert('Failed to save navigation item')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -59,7 +120,10 @@ export default function AdminNavigationPage() {
               <p className="text-gray-400">Manage menu items</p>
             </div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors neon-border">
+          <button 
+            onClick={openAddModal}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors neon-border"
+          >
             <Plus className="h-5 w-5" />
             Add Item
           </button>
@@ -87,7 +151,7 @@ export default function AdminNavigationPage() {
                   {item.is_active ? 'Active' : 'Inactive'}
                 </span>
                 <div className="flex gap-2">
-                  <button className="p-2 rounded-lg hover:bg-dark-300 transition-colors">
+                  <button onClick={() => openEditModal(item)} className="p-2 rounded-lg hover:bg-dark-300 transition-colors">
                     <Edit className="h-4 w-4 text-gray-400 hover:text-primary-500" />
                   </button>
                   <button onClick={() => deleteNavItem(item.id)} className="p-2 rounded-lg hover:bg-dark-300 transition-colors">
@@ -99,6 +163,83 @@ export default function AdminNavigationPage() {
           </div>
         )}
       </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-100 rounded-xl border border-gray-800 w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-800">
+              <h2 className="text-xl font-bold text-white">
+                {editing ? 'Edit Navigation Item' : 'Add Navigation Item'}
+              </h2>
+              <button onClick={closeModal} className="p-2 hover:bg-dark-200 rounded-lg">
+                <X className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Label</label>
+                <input
+                  type="text"
+                  value={form.label || ''}
+                  onChange={(e) => setForm({ ...form, label: e.target.value })}
+                  className="w-full bg-dark-200 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  placeholder="Menu Label"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">URL</label>
+                <input
+                  type="text"
+                  value={form.url || ''}
+                  onChange={(e) => setForm({ ...form, url: e.target.value })}
+                  className="w-full bg-dark-200 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  placeholder="/shop"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Order</label>
+                <input
+                  type="number"
+                  value={form.display_order || 0}
+                  onChange={(e) => setForm({ ...form, display_order: parseInt(e.target.value) || 0 })}
+                  className="w-full bg-dark-200 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.is_active !== false}
+                    onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-gray-400">Active</span>
+                </label>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors"
+                >
+                  <Save className="h-4 w-4" />
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

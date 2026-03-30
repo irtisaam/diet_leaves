@@ -11,7 +11,7 @@
     -- 1. USER PROFILES (extends Supabase auth.users)
     -- ===========================================
     CREATE TABLE IF NOT EXISTS profiles (
-        id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         email VARCHAR(255) NOT NULL,
         full_name VARCHAR(255),
         phone VARCHAR(20),
