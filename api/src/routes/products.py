@@ -35,8 +35,8 @@ async def get_products(
             "featured": featured, "on_sale": on_sale, "search": search
         })
         
-        # Check cache first (5 minute TTL for listing)
-        cached = get_cached(cache_key, ttl=300)
+        # Check cache first (60s TTL for listing)
+        cached = get_cached(cache_key, ttl=60)
         if cached:
             return ProductList(**cached)
         
@@ -75,7 +75,7 @@ async def get_products(
         
         result = ProductList(products=products, total=total, page=page, limit=limit)
         # Cache the result
-        set_cached(cache_key, result.model_dump())
+        set_cached(cache_key, result.model_dump(), ttl=60)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -85,9 +85,9 @@ async def get_products(
 async def get_featured_products(limit: int = Query(6, ge=1, le=20)):
     """Get featured products for homepage"""
     try:
-        # Check cache first (10 minute TTL for featured)
+        # Check cache first (2 minute TTL for featured)
         cache_key = f"products:featured:{limit}"
-        cached = get_cached(cache_key, ttl=600)
+        cached = get_cached(cache_key, ttl=120)
         if cached:
             return [Product(**p) for p in cached]
         
@@ -102,9 +102,7 @@ async def get_featured_products(limit: int = Query(6, ge=1, le=20)):
             products.append(Product(**p))
         
         # Cache the result
-        set_cached(cache_key, [p.model_dump() for p in products])
-        return products
-        
+        set_cached(cache_key, [p.model_dump() for p in products], ttl=120)
         return products
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

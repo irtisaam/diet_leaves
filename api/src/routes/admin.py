@@ -192,6 +192,10 @@ async def admin_create_product(product: ProductCreate):
         data["images"] = data.pop("product_images", [])
         data["variants"] = data.pop("product_variants", [])
         
+        # Invalidate product caches so frontend sees new product immediately
+        invalidate_cache("products")
+        invalidate_cache("product")
+        
         return Product(**data)
     except HTTPException:
         raise
@@ -230,6 +234,10 @@ async def admin_update_product(product_id: UUID, product: ProductUpdate):
         data["images"] = data.pop("product_images", [])
         data["variants"] = data.pop("product_variants", [])
         
+        # Invalidate product caches
+        invalidate_cache("products")
+        invalidate_cache("product")
+        
         return Product(**data)
     except HTTPException:
         raise
@@ -252,6 +260,11 @@ async def admin_delete_product(product_id: UUID):
         
         # Delete product (cascades to images and variants)
         supabase.table("products").delete().eq("id", str(product_id)).execute()
+        
+        # Invalidate product caches
+        invalidate_cache("products")
+        invalidate_cache("product")
+        
         return {"message": "Product deleted"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

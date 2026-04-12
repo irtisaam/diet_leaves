@@ -163,26 +163,35 @@ export default function ProductDetailPage() {
                   />
                 </button>
               ))}
-              {/* Nutritional Label as small thumbnail */}
-              {nutritionalImageUrl && (
+            </div>
+
+            {/* Nutritional Label Image — shown below thumbnails */}
+            {nutritionalImageUrl && (
+              <div className="mt-2">
                 <button
                   onClick={() => setShowNutriLabel(true)}
-                  className="w-16 h-16 flex-shrink-0 rounded-xl border-2 border-emerald-600/50 hover:border-emerald-400 overflow-hidden transition-all relative group"
-                  title="View Nutritional Label"
+                  className="group relative w-full max-w-[280px] rounded-2xl overflow-hidden border border-emerald-800/30 hover:border-emerald-600/50 transition-all duration-300"
                 >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10 opacity-60 group-hover:opacity-40 transition-opacity" />
                   <Image
                     src={nutritionalImageUrl}
-                    alt="Nutrition"
-                    width={64}
-                    height={64}
-                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100"
+                    alt="Nutritional Label"
+                    width={280}
+                    height={360}
+                    className="w-full h-auto object-contain transition-transform duration-500 group-hover:scale-[1.02]"
                   />
-                  <span className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="text-[8px] font-bold text-white leading-tight text-center">NUTRI<br/>LABEL</span>
-                  </span>
+                  <div className="absolute bottom-3 left-3 right-3 z-20 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-white/90 flex items-center gap-1.5">
+                      <Leaf className="h-3 w-3 text-emerald-400" />
+                      Nutritional Label
+                    </span>
+                    <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/15 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                      Click to enlarge
+                    </span>
+                  </div>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Right — Product Info */}
