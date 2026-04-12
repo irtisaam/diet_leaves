@@ -9,11 +9,22 @@ CREATE TABLE IF NOT EXISTS faqs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     question TEXT NOT NULL,
     answer TEXT NOT NULL,           -- Rich text / markdown
+    image_url TEXT,                 -- Optional image stored in product-images/faq/ folder
     display_order INT NOT NULL DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add image_url column if table already exists (idempotent)
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'faqs' AND column_name = 'image_url'
+    ) THEN
+        ALTER TABLE faqs ADD COLUMN image_url TEXT;
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_faqs_order ON faqs(display_order);
 CREATE INDEX IF NOT EXISTS idx_faqs_active ON faqs(is_active);
@@ -31,12 +42,14 @@ CREATE TRIGGER trigger_faqs_updated_at
 
 -- RLS
 ALTER TABLE faqs ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Public read active faqs" ON faqs;
 CREATE POLICY "Public read active faqs" ON faqs
     FOR SELECT USING (is_active = TRUE);
+
 DROP POLICY IF EXISTS "Service role full access to faqs" ON faqs;
 CREATE POLICY "Service role full access to faqs" ON faqs
-    FOR ALL USING (auth.role() = 'service_role');
+    FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- Insert new site_settings for contact / social info (use ON CONFLICT DO NOTHING)
 INSERT INTO site_settings (setting_key, setting_value, setting_type, description) VALUES

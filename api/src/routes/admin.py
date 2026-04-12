@@ -149,6 +149,10 @@ async def admin_create_product(product: ProductCreate):
             product_data["category_id"] = str(product_data["category_id"])
         if product_data.get("nutritional_info"):
             product_data["nutritional_info"] = dict(product_data["nutritional_info"])
+
+        # Normalize empty SKU → null to avoid unique constraint errors
+        if not product_data.get("sku"):
+            product_data["sku"] = None
         
         # Convert Decimal to float
         product_data["price"] = float(product_data["price"])

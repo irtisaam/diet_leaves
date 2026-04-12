@@ -358,12 +358,14 @@ class SiteSettings(BaseModel):
 class FAQCreate(BaseModel):
     question: str
     answer: str
+    image_url: Optional[str] = None
     display_order: int = 0
     is_active: bool = True
 
 class FAQUpdate(BaseModel):
     question: Optional[str] = None
     answer: Optional[str] = None
+    image_url: Optional[str] = None
     display_order: Optional[int] = None
     is_active: Optional[bool] = None
 
@@ -375,6 +377,7 @@ class FAQ(BaseModel):
     id: UUID
     question: str
     answer: str
+    image_url: Optional[str] = None
     display_order: int
     is_active: bool
     created_at: datetime

@@ -17,14 +17,17 @@ router = APIRouter()
 @router.get("", response_model=SiteSettings)
 async def get_site_settings():
     """Get all public site settings"""
+    cached = get_cached("settings:all")
+    if cached:
+        return cached
     try:
         response = supabase.table("site_settings").select("*").execute()
-        
         settings = {}
         for s in response.data:
             settings[s["setting_key"]] = s["setting_value"]
-        
-        return SiteSettings(settings=settings)
+        result = SiteSettings(settings=settings)
+        set_cached("settings:all", result, ttl=120)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

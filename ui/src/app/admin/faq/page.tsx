@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   ArrowLeft, Plus, Pencil, Trash2, GripVertical,
-  ChevronUp, ChevronDown, Eye, EyeOff, Loader2, Check, X
+  ChevronUp, ChevronDown, Eye, EyeOff, Loader2, Check, X, Upload,
 } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -13,6 +14,7 @@ interface FAQ {
   id: string
   question: string
   answer: string
+  image_url?: string | null
   display_order: number
   is_active: boolean
   created_at: string
@@ -22,31 +24,27 @@ interface FAQ {
 interface FAQFormData {
   question: string
   answer: string
+  image_url: string
   display_order: number
   is_active: boolean
 }
 
-const emptyForm: FAQFormData = {
-  question: '',
-  answer: '',
-  display_order: 0,
-  is_active: true,
-}
+const emptyForm: FAQFormData = { question: '', answer: '', image_url: '', display_order: 0, is_active: true }
 
 export default function AdminFAQPage() {
   const [faqs, setFaqs] = useState<FAQ[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [uploadingImg, setUploadingImg] = useState(false)
 
-  // Modal state
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FAQFormData>(emptyForm)
   const [formError, setFormError] = useState('')
-
-  // Delete confirm
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  const imgInputRef = useRef<HTMLInputElement>(null)
 
   const fetchFAQs = useCallback(async () => {
     setLoading(true)
@@ -76,11 +74,32 @@ export default function AdminFAQPage() {
     setForm({
       question: faq.question,
       answer: faq.answer,
+      image_url: faq.image_url || '',
       display_order: faq.display_order,
       is_active: faq.is_active,
     })
     setFormError('')
     setShowModal(true)
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingImg(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('folder', 'faq')
+      const res = await fetch(`${API}/api/admin/upload/image`, { method: 'POST', body: fd })
+      if (!res.ok) throw new Error('Upload failed')
+      const data = await res.json()
+      setForm(p => ({ ...p, image_url: data.url }))
+    } catch (err) {
+      alert('Image upload failed. Please try again.')
+    } finally {
+      setUploadingImg(false)
+      if (imgInputRef.current) imgInputRef.current.value = ''
+    }
   }
 
   async function handleSave() {
@@ -91,14 +110,13 @@ export default function AdminFAQPage() {
     setSaving(true)
     setFormError('')
     try {
-      const url = editingId
-        ? `${API}/api/admin/faqs/${editingId}`
-        : `${API}/api/admin/faqs`
+      const url = editingId ? `${API}/api/admin/faqs/${editingId}` : `${API}/api/admin/faqs`
       const method = editingId ? 'PUT' : 'POST'
+      const payload = { ...form, image_url: form.image_url || null }
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -135,9 +153,7 @@ export default function AdminFAQPage() {
         body: JSON.stringify({ is_active: !faq.is_active }),
       })
       setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, is_active: !f.is_active } : f))
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }
 
   async function move(faq: FAQ, direction: 'up' | 'down') {
@@ -145,24 +161,19 @@ export default function AdminFAQPage() {
     const idx = sorted.findIndex(f => f.id === faq.id)
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
     if (swapIdx < 0 || swapIdx >= sorted.length) return
-
     const updated = sorted.map((f, i) => {
       if (i === idx) return { ...f, display_order: sorted[swapIdx].display_order }
       if (i === swapIdx) return { ...f, display_order: sorted[idx].display_order }
       return f
     })
     setFaqs(updated)
-
     try {
       await fetch(`${API}/api/admin/faqs/reorder`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated.map(f => ({ id: f.id, display_order: f.display_order }))),
       })
-    } catch (e) {
-      console.error(e)
-      fetchFAQs() // revert on error
-    }
+    } catch { fetchFAQs() }
   }
 
   const sorted = [...faqs].sort((a, b) => a.display_order - b.display_order)
@@ -170,7 +181,6 @@ export default function AdminFAQPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] py-8">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Link href="/admin" className="text-gray-400 hover:text-white transition-colors">
@@ -185,12 +195,10 @@ export default function AdminFAQPage() {
             onClick={openAdd}
             className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors font-medium"
           >
-            <Plus className="h-4 w-4" />
-            Add FAQ
+            <Plus className="h-4 w-4" /> Add FAQ
           </button>
         </div>
 
-        {/* FAQ List */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 text-primary-500 animate-spin" />
@@ -198,76 +206,50 @@ export default function AdminFAQPage() {
         ) : sorted.length === 0 ? (
           <div className="text-center py-20 bg-[#121212] rounded-xl border border-gray-800">
             <p className="text-gray-400 mb-4">No FAQs yet. Add your first one!</p>
-            <button
-              onClick={openAdd}
-              className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Add FAQ
+            <button onClick={openAdd} className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors">
+              <Plus className="h-4 w-4" /> Add FAQ
             </button>
           </div>
         ) : (
           <div className="space-y-3">
             {sorted.map((faq, idx) => (
-              <div
-                key={faq.id}
-                className="bg-[#121212] border border-gray-800 rounded-xl p-4 flex items-start gap-4 group"
-              >
-                {/* Order controls */}
+              <div key={faq.id} className="bg-[#121212] border border-gray-800 rounded-xl p-4 flex items-start gap-4">
                 <div className="flex flex-col items-center gap-1 pt-1">
                   <GripVertical className="h-4 w-4 text-gray-600" />
-                  <button
-                    onClick={() => move(faq, 'up')}
-                    disabled={idx === 0}
-                    className="text-gray-500 hover:text-white disabled:opacity-20 transition-colors"
-                  >
+                  <button onClick={() => move(faq, 'up')} disabled={idx === 0} className="text-gray-500 hover:text-white disabled:opacity-20 transition-colors">
                     <ChevronUp className="h-4 w-4" />
                   </button>
-                  <button
-                    onClick={() => move(faq, 'down')}
-                    disabled={idx === sorted.length - 1}
-                    className="text-gray-500 hover:text-white disabled:opacity-20 transition-colors"
-                  >
+                  <button onClick={() => move(faq, 'down')} disabled={idx === sorted.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 transition-colors">
                     <ChevronDown className="h-4 w-4" />
                   </button>
                 </div>
 
-                {/* Content */}
+                {faq.image_url && (
+                  <div className="shrink-0 relative w-16 h-16 rounded-lg overflow-hidden border border-gray-700">
+                    <Image src={faq.image_url} alt={faq.question} fill className="object-cover" sizes="64px" />
+                  </div>
+                )}
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className={`font-medium ${faq.is_active ? 'text-white' : 'text-gray-500'}`}>
-                        {faq.question}
-                      </p>
+                      <p className={`font-medium ${faq.is_active ? 'text-white' : 'text-gray-500'}`}>{faq.question}</p>
                       <p className="text-gray-500 text-sm mt-1 line-clamp-2">{faq.answer}</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${faq.is_active ? 'bg-emerald-900/40 text-emerald-400' : 'bg-gray-800 text-gray-500'}`}>
-                        {faq.is_active ? 'Active' : 'Hidden'}
-                      </span>
-                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${faq.is_active ? 'bg-emerald-900/40 text-emerald-400' : 'bg-gray-800 text-gray-500'}`}>
+                      {faq.is_active ? 'Active' : 'Hidden'}
+                    </span>
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => toggleActive(faq)}
-                    className="p-2 text-gray-500 hover:text-primary-400 transition-colors rounded-lg hover:bg-gray-800"
-                    title={faq.is_active ? 'Hide' : 'Show'}
-                  >
+                  <button onClick={() => toggleActive(faq)} className="p-2 text-gray-500 hover:text-primary-400 transition-colors rounded-lg hover:bg-gray-800" title={faq.is_active ? 'Hide' : 'Show'}>
                     {faq.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
-                  <button
-                    onClick={() => openEdit(faq)}
-                    className="p-2 text-gray-500 hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-800"
-                  >
+                  <button onClick={() => openEdit(faq)} className="p-2 text-gray-500 hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-800">
                     <Pencil className="h-4 w-4" />
                   </button>
-                  <button
-                    onClick={() => setConfirmDelete(faq.id)}
-                    className="p-2 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-gray-800"
-                  >
+                  <button onClick={() => setConfirmDelete(faq.id)} className="p-2 text-gray-500 hover:text-red-400 transition-colors rounded-lg hover:bg-gray-800">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -280,15 +262,10 @@ export default function AdminFAQPage() {
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#161616] border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-gray-800">
-              <h2 className="text-xl font-bold text-white">
-                {editingId ? 'Edit FAQ' : 'Add FAQ'}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
+          <div className="bg-[#161616] border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-800 sticky top-0 bg-[#161616] z-10">
+              <h2 className="text-xl font-bold text-white">{editingId ? 'Edit FAQ' : 'Add FAQ'}</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -316,6 +293,46 @@ export default function AdminFAQPage() {
                 />
               </div>
 
+              {/* Image upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Image (optional)</label>
+                {form.image_url ? (
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-700">
+                      <Image src={form.image_url} alt="FAQ image" fill className="object-cover" sizes="96px" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setForm(p => ({ ...p, image_url: '' }))}
+                      className="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => !uploadingImg && imgInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-700 rounded-lg p-6 flex flex-col items-center gap-2 cursor-pointer hover:border-primary-500 transition-colors"
+                  >
+                    {uploadingImg ? (
+                      <Loader2 className="h-6 w-6 text-primary-400 animate-spin" />
+                    ) : (
+                      <Upload className="h-6 w-6 text-gray-400" />
+                    )}
+                    <p className="text-gray-400 text-sm">{uploadingImg ? 'Uploading…' : 'Click to upload image'}</p>
+                    <p className="text-gray-600 text-xs">PNG, JPG, WebP up to 5 MB</p>
+                  </div>
+                )}
+                <input
+                  ref={imgInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImg}
+                />
+              </div>
+
               <div className="flex items-center gap-6">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-300 mb-1">Display Order</label>
@@ -329,6 +346,7 @@ export default function AdminFAQPage() {
                 <div className="flex items-center gap-3 mt-5">
                   <label className="text-sm font-medium text-gray-300">Active</label>
                   <button
+                    type="button"
                     onClick={() => setForm(p => ({ ...p, is_active: !p.is_active }))}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.is_active ? 'bg-primary-500' : 'bg-gray-700'}`}
                   >
@@ -342,16 +360,13 @@ export default function AdminFAQPage() {
               )}
             </div>
 
-            <div className="flex justify-end gap-3 p-6 border-t border-gray-800">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-              >
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-800 sticky bottom-0 bg-[#161616]">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
                 Cancel
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || uploadingImg}
                 className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white px-6 py-2 rounded-lg transition-colors font-medium"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -369,10 +384,7 @@ export default function AdminFAQPage() {
             <h2 className="text-lg font-bold text-white mb-2">Delete FAQ?</h2>
             <p className="text-gray-400 text-sm mb-6">This action cannot be undone.</p>
             <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-              >
+              <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
                 Cancel
               </button>
               <button
