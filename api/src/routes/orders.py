@@ -169,19 +169,68 @@ async def get_order(order_number: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/track/{order_number}")
-async def track_order(order_number: str):
-    """Track order status"""
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/{order_number}/cancel")
+async def cancel_order(order_number: str, customer_email: str):
+    """User-facing order cancellation.
+    Only allowed when the order has not reached 'shipping' status yet.
+    Requires the customer_email that matches the order to prevent abuse.
+    Inventory deductions only happen at shipping, so no restore is needed here.
+    However restores product.stock_quantity so the item is available again.
+    """
     try:
-        response = supabase.table("orders").select(
-            "order_number, status, payment_status, tracking_number, shipping_carrier, created_at, updated_at"
-        ).eq("order_number", order_number).single().execute()
-        
-        if not response.data:
+        # Fetch order
+        resp = supabase.table("orders").select(
+            "id, status, customer_email"
+        ).eq("order_number", order_number.upper()).single().execute()
+
+        if not resp.data:
             raise HTTPException(status_code=404, detail="Order not found")
-        
-        return response.data
+
+        order = resp.data
+
+        # Verify caller owns the order
+        if order["customer_email"].lower() != customer_email.lower():
+            raise HTTPException(status_code=403, detail="Email does not match order")
+
+        # Only cancellable before shipping
+        _cancellable = {"pending", "processing"}
+        if order["status"] not in _cancellable:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Order cannot be cancelled at status '{order['status']}'. "
+                       "Contact support for orders that are already shipped."
+            )
+
+        order_id = order["id"]
+
+        # Update status to cancelled
+        supabase.table("orders").update({"status": "cancelled"}).eq(
+            "id", order_id
+        ).execute()
+
+        # Restore product stock_quantity (undo the deduction done at order creation)
+        items_resp = supabase.table("order_items").select(
+            "product_id, quantity"
+        ).eq("order_id", order_id).execute()
+
+        for oi in (items_resp.data or []):
+            prod_resp = supabase.table("products").select("stock_quantity").eq(
+                "id", oi["product_id"]
+            ).single().execute()
+            if prod_resp.data:
+                restored = int(float(prod_resp.data.get("stock_quantity", 0))) + int(oi["quantity"])
+                supabase.table("products").update(
+                    {"stock_quantity": restored}
+                ).eq("id", oi["product_id"]).execute()
+
+        return {"success": True, "message": "Order cancelled successfully"}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

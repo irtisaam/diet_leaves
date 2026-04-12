@@ -352,6 +352,36 @@ class SiteSettings(BaseModel):
 
 
 # ===========================================
+# FAQ MODELS
+# ===========================================
+
+class FAQCreate(BaseModel):
+    question: str
+    answer: str
+    display_order: int = 0
+    is_active: bool = True
+
+class FAQUpdate(BaseModel):
+    question: Optional[str] = None
+    answer: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class FAQReorderItem(BaseModel):
+    id: UUID
+    display_order: int
+
+class FAQ(BaseModel):
+    id: UUID
+    question: str
+    answer: str
+    display_order: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+# ===========================================
 # HERO SECTION MODELS
 # ===========================================
 

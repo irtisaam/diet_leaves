@@ -6,14 +6,23 @@ import { Facebook, Instagram, Youtube } from 'lucide-react'
 import { settingsAPI } from '@/lib/api'
 import { FooterItem } from '@/types'
 
-const iconMap: Record<string, any> = {
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+const iconMap: Record<string, React.ElementType> = {
   facebook: Facebook,
   instagram: Instagram,
   youtube: Youtube,
 }
 
+interface SocialSettings {
+  social_facebook?: string
+  social_instagram?: string
+  social_youtube?: string
+}
+
 export default function Footer() {
   const [footerItems, setFooterItems] = useState<FooterItem[]>([])
+  const [socialSettings, setSocialSettings] = useState<SocialSettings>({})
   const [year] = useState(new Date().getFullYear())
 
   useEffect(() => {
@@ -22,19 +31,53 @@ export default function Footer() {
         const data = await settingsAPI.getFooter()
         setFooterItems(data as FooterItem[])
       } catch (error) {
-        // Use defaults
-        setFooterItems([
-          { id: '1', label: 'Facebook', item_type: 'social_link', url: '#', icon: 'facebook', section: 'social', display_order: 1, is_active: true },
-          { id: '2', label: 'Instagram', item_type: 'social_link', url: '#', icon: 'instagram', section: 'social', display_order: 2, is_active: true },
-          { id: '3', label: 'YouTube', item_type: 'social_link', url: '#', icon: 'youtube', section: 'social', display_order: 3, is_active: true },
-        ])
+        setFooterItems([])
       }
     }
+
+    const fetchSocialSettings = async () => {
+      try {
+        const res = await fetch(`${API}/api/settings`)
+        const data = await res.json()
+        if (data && data.settings) {
+          setSocialSettings({
+            social_facebook: data.settings.social_facebook || '',
+            social_instagram: data.settings.social_instagram || '',
+            social_youtube: data.settings.social_youtube || '',
+          })
+        }
+      } catch { /* ignore */ }
+    }
+
     fetchFooter()
+    fetchSocialSettings()
   }, [])
 
-  const socialLinks = footerItems.filter(item => item.item_type === 'social_link')
   const legalLinks = footerItems.filter(item => item.section === 'legal')
+
+  // Build dynamic social links from settings, fall back to footer_items social_link entries
+  const dynamicSocial: { key: string; label: string; url: string; icon: React.ElementType }[] = []
+  if (socialSettings.social_facebook) {
+    dynamicSocial.push({ key: 'facebook', label: 'Facebook', url: socialSettings.social_facebook, icon: Facebook })
+  }
+  if (socialSettings.social_instagram) {
+    dynamicSocial.push({ key: 'instagram', label: 'Instagram', url: socialSettings.social_instagram, icon: Instagram })
+  }
+  if (socialSettings.social_youtube) {
+    dynamicSocial.push({ key: 'youtube', label: 'YouTube', url: socialSettings.social_youtube, icon: Youtube })
+  }
+
+  // Fall back to footer_items if no settings-based socials configured
+  const socialLinks = dynamicSocial.length > 0
+    ? dynamicSocial
+    : footerItems
+        .filter(item => item.item_type === 'social_link')
+        .map(item => ({
+          key: item.icon || item.id,
+          label: item.label,
+          url: item.url || '#',
+          icon: item.icon ? (iconMap[item.icon] || Facebook) : Facebook,
+        }))
 
   return (
     <footer className="bg-dark border-t border-dark-200">
@@ -57,6 +100,7 @@ export default function Footer() {
             <ul className="space-y-2">
               <li><Link href="/shop" className="text-gray-400 hover:text-primary transition-colors">Shop</Link></li>
               <li><Link href="/products" className="text-gray-400 hover:text-primary transition-colors">Products</Link></li>
+              <li><Link href="/faq" className="text-gray-400 hover:text-primary transition-colors">FAQ</Link></li>
               <li><Link href="/about" className="text-gray-400 hover:text-primary transition-colors">About Us</Link></li>
               <li><Link href="/contact" className="text-gray-400 hover:text-primary transition-colors">Contact</Link></li>
             </ul>
@@ -67,17 +111,17 @@ export default function Footer() {
             <h4 className="text-white font-semibold mb-4">Follow Us</h4>
             <div className="flex space-x-4">
               {socialLinks.map((item) => {
-                const Icon = item.icon ? iconMap[item.icon] : null
+                const Icon = item.icon
                 return (
                   <a
-                    key={item.id}
+                    key={item.key}
                     href={item.url || '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-10 h-10 bg-dark-100 rounded-lg flex items-center justify-center text-gray-400 hover:text-primary hover:bg-dark-200 transition-all"
                     aria-label={item.label}
                   >
-                    {Icon && <Icon className="h-5 w-5" />}
+                    <Icon className="h-5 w-5" />
                   </a>
                 )
               })}

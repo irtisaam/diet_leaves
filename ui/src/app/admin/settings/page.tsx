@@ -86,6 +86,8 @@ export default function AdminSettingsPage() {
     'General': ['site_name', 'announcement_bar_text', 'announcement_bar_enabled'],
     'Branding': ['site_logo', 'primary_color', 'secondary_color'],
     'Contact': ['contact_email', 'contact_phone', 'contact_address'],
+    'Social Media': ['contact_whatsapp', 'social_facebook', 'social_instagram', 'social_youtube'],
+    'Contact Page': ['about_description'],
     'Shipping': ['free_shipping_threshold', 'shipping_cost', 'currency', 'currency_symbol']
   }
 
@@ -103,6 +105,11 @@ export default function AdminSettingsPage() {
     shipping_cost: { label: 'Default Shipping Cost', placeholder: '200', help: 'Standard shipping fee applied when below the free threshold' },
     currency: { label: 'Currency Code', placeholder: 'PKR', help: 'ISO currency code used in the system' },
     currency_symbol: { label: 'Currency Symbol', placeholder: 'Rs.', help: 'Symbol shown before prices on the storefront' },
+    contact_whatsapp: { label: 'WhatsApp Number', placeholder: '+92 300 1234567', help: 'WhatsApp number for customer support (with country code, no spaces)' },
+    social_facebook: { label: 'Facebook URL', placeholder: 'https://facebook.com/dietleaves', help: 'Full URL to your Facebook page' },
+    social_instagram: { label: 'Instagram URL', placeholder: 'https://instagram.com/dietleaves', help: 'Full URL to your Instagram profile' },
+    social_youtube: { label: 'YouTube URL', placeholder: 'https://youtube.com/@dietleaves', help: 'Full URL to your YouTube channel' },
+    about_description: { label: 'About Description', placeholder: 'Tell your story...', help: 'Description shown on the Contact Us / About page' },
   }
 
   const renderField = (key: string, setting: Setting) => {
@@ -182,6 +189,19 @@ export default function AdminSettingsPage() {
             style={{ backgroundColor: setting.setting_value || '#666' }}
           />
         </div>
+      )
+    }
+
+    // Textarea for long text fields
+    if (key === 'about_description') {
+      return (
+        <textarea
+          value={setting.setting_value || ''}
+          onChange={(e) => updateSetting(key, e.target.value)}
+          rows={5}
+          placeholder={meta?.placeholder || ''}
+          className="w-full px-4 py-3 bg-dark-200 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 transition-colors resize-none"
+        />
       )
     }
 

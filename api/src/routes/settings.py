@@ -5,7 +5,8 @@ import asyncio
 from fastapi import APIRouter, HTTPException
 from ..models.schemas import (
     SiteSettings, NavigationItem, FooterItem, 
-    HeroSection, Banner, HomepageSection, Product, Review
+    HeroSection, Banner, HomepageSection, Product, Review,
+    FAQ,
 )
 from ..utils.database import supabase
 from ..utils.cache import get_cached, set_cached
@@ -179,6 +180,25 @@ async def get_homepage_data():
         # Cache the result
         set_cached(cache_key, result)
         
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================================
+# PUBLIC FAQ ENDPOINT
+# ===========================================
+
+@router.get("/faqs", response_model=list[FAQ])
+async def get_public_faqs():
+    """Get all active FAQs ordered by display_order"""
+    cached = get_cached("faqs:public")
+    if cached:
+        return cached
+    try:
+        response = supabase.table("faqs").select("*").eq("is_active", True).order("display_order").execute()
+        result = [FAQ(**f) for f in response.data]
+        set_cached("faqs:public", result, ttl=60)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

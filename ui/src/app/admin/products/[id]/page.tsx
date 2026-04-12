@@ -107,6 +107,7 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadingNutri, setUploadingNutri] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [images, setImages] = useState<ProductImage[]>([])
   const [nutritionalImage, setNutritionalImage] = useState<string>('')
@@ -315,27 +316,28 @@ export default function EditProductPage() {
   const handleNutritionalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    setUploading(true)
+    setUploadingNutri(true)
     try {
       const uploadData = new FormData()
       uploadData.append('file', file)
       uploadData.append('folder', 'nutritional')
-
       const res = await fetch(`${API_URL}/api/admin/upload/image`, {
         method: 'POST',
         body: uploadData
       })
-
       if (res.ok) {
         const data = await res.json()
         setNutritionalImage(data.url)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert('Upload failed: ' + (err.detail || res.statusText))
       }
     } catch (error) {
       console.error('Failed to upload nutritional image:', error)
       alert('Failed to upload nutritional image')
     } finally {
-      setUploading(false)
+      setUploadingNutri(false)
+      if (nutritionalImgRef.current) nutritionalImgRef.current.value = ''
     }
   }
 
@@ -836,10 +838,14 @@ export default function EditProductPage() {
                   <button
                     type="button"
                     onClick={() => nutritionalImgRef.current?.click()}
-                    className="w-48 h-32 rounded-lg border-2 border-dashed border-zinc-700 hover:border-white flex flex-col items-center justify-center gap-2 transition-colors"
+                    disabled={uploadingNutri}
+                    className="w-48 h-32 rounded-lg border-2 border-dashed border-zinc-700 hover:border-white flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50"
                   >
-                    <Upload className="h-6 w-6 text-gray-400" />
-                    <span className="text-sm text-gray-400">Upload Image</span>
+                    {uploadingNutri ? (
+                      <><Loader2 className="h-6 w-6 text-gray-400 animate-spin" /><span className="text-sm text-gray-400">Uploading…</span></>
+                    ) : (
+                      <><Upload className="h-6 w-6 text-gray-400" /><span className="text-sm text-gray-400">Upload Image</span></>
+                    )}
                   </button>
                 )}
                 <input

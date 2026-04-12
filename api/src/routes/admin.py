@@ -24,11 +24,13 @@ from ..models.schemas import (
     # Homepage
     HomepageSection, HomepageSectionCreate, HomepageSectionUpdate,
     # Users
-    UserProfile
+    UserProfile,
+    # FAQ
+    FAQ, FAQCreate, FAQUpdate, FAQReorderItem,
 )
 from ..utils.database import supabase
 from ..services.storage import upload_image, delete_image, upload_multiple_images
-from ..utils.cache import invalidate_cache
+from ..utils.cache import get_cached, set_cached, invalidate_cache
 
 router = APIRouter()
 
@@ -444,8 +446,22 @@ async def admin_get_order(order_id: UUID):
 
 
 def _deduct_inventory_for_order(order_id: str):
-    """Deduct inventory batches (FIFO by expiry) when order moves to shipping."""
+    """Deduct inventory batches (FIFO by expiry) when order moves to shipping.
+    Allows stock to go negative — order is never halted.
+    Logs every deduction to order_inventory_deductions for future reversal.
+    Guards against double-deduction if the order is somehow re-set to shipping.
+    """
     try:
+        # Guard: skip if this order was already deducted (table may not exist yet — that's OK)
+        try:
+            existing = supabase.table("order_inventory_deductions").select("id").eq(
+                "order_id", order_id
+            ).eq("is_reversed", False).limit(1).execute()
+            if existing.data:
+                return  # Already deducted for this order
+        except Exception:
+            pass  # Table not created yet — proceed anyway
+
         # Get order items
         oi_resp = supabase.table("order_items").select("product_id, quantity").eq(
             "order_id", order_id
@@ -480,12 +496,13 @@ def _deduct_inventory_for_order(order_id: str):
         # Deduct from batches FIFO (oldest expiry first)
         for inv_item_id, total_to_deduct in deductions.items():
             remaining = total_to_deduct
-            # Get active batches ordered by expiry (nulls last)
+
+            # Get active batches ordered by expiry (nulls last — use created_at as tiebreaker)
             batches_resp = supabase.table("inventory_batches").select("id, quantity").eq(
                 "inventory_item_id", inv_item_id
-            ).eq("is_active", True).order("expiry_date", desc=False).execute()
+            ).eq("is_active", True).order("expiry_date", desc=False).order("created_at", desc=False).execute()
 
-            for batch in batches_resp.data:
+            for batch in (batches_resp.data or []):
                 if remaining <= 0:
                     break
                 batch_qty = float(batch["quantity"])
@@ -501,30 +518,87 @@ def _deduct_inventory_for_order(order_id: str):
                 ).execute()
                 remaining -= deduct
 
-            # Sync the inventory_items total
+            # Recalculate quantity_available from active batches
             sync_resp = supabase.table("inventory_batches").select("quantity").eq(
                 "inventory_item_id", inv_item_id
             ).eq("is_active", True).execute()
-            new_total = sum(float(b.get("quantity", 0)) for b in sync_resp.data)
+            new_total = sum(float(b.get("quantity", 0)) for b in (sync_resp.data or []))
+
+            # If remaining > 0, stock is insufficient — allow negative (don't halt order)
+            if remaining > 0:
+                new_total -= remaining  # goes negative
+
             supabase.table("inventory_items").update(
                 {"quantity_available": new_total}
             ).eq("id", inv_item_id).execute()
 
+            # Log the deduction for future reversal (upsert by order+item)
+            supabase.table("order_inventory_deductions").insert({
+                "order_id": order_id,
+                "inventory_item_id": inv_item_id,
+                "quantity_deducted": total_to_deduct,
+            }).execute()
+
     except Exception:
-        # Don't fail the order update if inventory deduction has issues
+        # Never fail the order update due to inventory issues
+        pass
+
+
+def _restore_inventory_for_order(order_id: str):
+    """Restore inventory quantities when an order that was already shipped
+    gets cancelled or refunded. Reads the deduction log and adds back the quantities.
+    """
+    try:
+        from datetime import datetime, timezone
+        # Find non-reversed deductions for this order
+        ded_resp = supabase.table("order_inventory_deductions").select(
+            "id, inventory_item_id, quantity_deducted"
+        ).eq("order_id", order_id).eq("is_reversed", False).execute()
+
+        if not ded_resp.data:
+            return  # Nothing was deducted or already reversed
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        for ded in ded_resp.data:
+            inv_id = ded["inventory_item_id"]
+            qty_to_restore = float(ded["quantity_deducted"])
+
+            # Fetch current quantity_available
+            item_resp = supabase.table("inventory_items").select(
+                "quantity_available"
+            ).eq("id", inv_id).single().execute()
+
+            if item_resp.data:
+                current_qty = float(item_resp.data.get("quantity_available", 0))
+                supabase.table("inventory_items").update({
+                    "quantity_available": current_qty + qty_to_restore
+                }).eq("id", inv_id).execute()
+
+            # Mark deduction as reversed
+            supabase.table("order_inventory_deductions").update({
+                "is_reversed": True,
+                "reversed_at": now_iso,
+            }).eq("id", ded["id"]).execute()
+
+    except Exception:
+        # Never fail the order update due to inventory restore issues
         pass
 
 
 @router.put("/orders/{order_id}", response_model=Order)
 async def admin_update_order(order_id: UUID, order: OrderUpdate):
-    """Update order status. Auto-deducts inventory when status changes to shipping."""
+    """Update order status.
+    - Status → 'shipping': auto-deducts inventory (FIFO, allows negative stock).
+    - Status → 'cancelled'/'refunded': restores inventory IF order was already shipped.
+    """
     try:
         update_data = order.model_dump(exclude_unset=True)
         new_status = update_data.get("status")
 
-        # If status is changing to 'shipping', fetch old status first
+        # Always fetch old status when status is changing — needed for both deduction and restore
         old_status = None
-        if new_status == "shipping":
+        if new_status:
             old_resp = supabase.table("orders").select("status").eq(
                 "id", str(order_id)
             ).single().execute()
@@ -534,22 +608,29 @@ async def admin_update_order(order_id: UUID, order: OrderUpdate):
         response = supabase.table("orders").update(update_data).eq(
             "id", str(order_id)
         ).execute()
-        
+
         if not response.data:
             raise HTTPException(status_code=404, detail="Order not found")
 
-        # Auto-deduct inventory when transitioning TO shipping
+        # Statuses that mean inventory was already deducted
+        _DEDUCTED_STATUSES = {"shipping", "shipped", "delivered", "completed"}
+
+        # Deduct inventory when transitioning TO 'shipping' (only once)
         if new_status == "shipping" and old_status and old_status != "shipping":
             _deduct_inventory_for_order(str(order_id))
-        
-        # Get complete order
+
+        # Restore inventory when cancelling/refunding an order that was already shipped
+        elif new_status in ("cancelled", "refunded") and old_status in _DEDUCTED_STATUSES:
+            _restore_inventory_for_order(str(order_id))
+
+        # Get complete order with items
         complete = supabase.table("orders").select("*, order_items(*)").eq(
             "id", str(order_id)
         ).single().execute()
-        
+
         data = complete.data
         data["items"] = data.pop("order_items", [])
-        
+
         return Order(**data)
     except HTTPException:
         raise
@@ -1468,3 +1549,84 @@ async def check_schema_status():
         ]
     
     return status
+
+
+# ===========================================
+# FAQ MANAGEMENT
+# ===========================================
+
+@router.get("/faqs", response_model=list[FAQ])
+async def admin_get_faqs():
+    """Get all FAQs (admin - includes inactive)"""
+    cached = get_cached("faqs:admin")
+    if cached:
+        return cached
+    try:
+        response = supabase.table("faqs").select("*").order("display_order").execute()
+        result = [FAQ(**f) for f in response.data]
+        set_cached("faqs:admin", result, ttl=30)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/faqs", response_model=FAQ)
+async def admin_create_faq(faq: FAQCreate):
+    """Create a new FAQ"""
+    try:
+        response = supabase.table("faqs").insert(faq.model_dump()).execute()
+        if not response.data:
+            raise HTTPException(status_code=400, detail="Failed to create FAQ")
+        invalidate_cache("faqs:")
+        return FAQ(**response.data[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/faqs/reorder")
+async def admin_reorder_faqs(items: list[FAQReorderItem]):
+    """Bulk update display_order for FAQs"""
+    try:
+        for item in items:
+            supabase.table("faqs").update(
+                {"display_order": item.display_order}
+            ).eq("id", str(item.id)).execute()
+        invalidate_cache("faqs:")
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/faqs/{faq_id}", response_model=FAQ)
+async def admin_update_faq(faq_id: UUID, faq: FAQUpdate):
+    """Update a FAQ"""
+    try:
+        update_data = faq.model_dump(exclude_none=True)
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        response = supabase.table("faqs").update(update_data).eq("id", str(faq_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="FAQ not found")
+        invalidate_cache("faqs:")
+        return FAQ(**response.data[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/faqs/{faq_id}")
+async def admin_delete_faq(faq_id: UUID):
+    """Delete a FAQ"""
+    try:
+        response = supabase.table("faqs").delete().eq("id", str(faq_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="FAQ not found")
+        invalidate_cache("faqs:")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

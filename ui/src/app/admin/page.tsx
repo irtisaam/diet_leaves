@@ -12,7 +12,8 @@ import {
   Star,
   FileText,
   Tag,
-  Warehouse
+  Warehouse,
+  HelpCircle,
 } from 'lucide-react'
 
 export default function AdminPage() {
@@ -27,7 +28,8 @@ export default function AdminPage() {
     { icon: Menu, label: 'Navigation', href: '/admin/navigation', description: 'Menu Items' },
     { icon: Star, label: 'Reviews', href: '/admin/reviews', description: 'Product Reviews' },
     { icon: Warehouse, label: 'Inventory', href: '/admin/inventory', description: 'Stock & Ingredients' },
-    { icon: Settings, label: 'Settings', href: '/admin/settings', description: 'Site Settings' },
+    { icon: HelpCircle, label: 'FAQ', href: '/admin/faq', description: 'Manage FAQ Questions' },
+    { icon: Settings, label: 'Settings', href: '/admin/settings', description: 'Site Settings & Social Links' },
   ]
 
   return (
