@@ -399,6 +399,47 @@ class FAQ(BaseModel):
 
 
 # ===========================================
+# BLOG MODELS
+# ===========================================
+
+class BlogPostCreate(BaseModel):
+    title: str
+    slug: Optional[str] = None
+    short_description: Optional[str] = None
+    content: str
+    hero_image_url: Optional[str] = None
+    author: Optional[str] = "Diet Leaves"
+    is_published: bool = False
+    is_pinned: bool = False
+    display_order: int = 0
+
+class BlogPostUpdate(BaseModel):
+    title: Optional[str] = None
+    slug: Optional[str] = None
+    short_description: Optional[str] = None
+    content: Optional[str] = None
+    hero_image_url: Optional[str] = None
+    author: Optional[str] = None
+    is_published: Optional[bool] = None
+    is_pinned: Optional[bool] = None
+    display_order: Optional[int] = None
+
+class BlogPost(BaseModel):
+    id: UUID
+    title: str
+    slug: str
+    short_description: Optional[str] = None
+    content: str
+    hero_image_url: Optional[str] = None
+    author: Optional[str] = "Diet Leaves"
+    is_published: bool
+    is_pinned: bool
+    display_order: int
+    created_at: datetime
+    updated_at: datetime
+
+
+# ===========================================
 # HERO SECTION MODELS
 # ===========================================
 

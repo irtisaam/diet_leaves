@@ -27,6 +27,8 @@ from ..models.schemas import (
     UserProfile,
     # FAQ
     FAQ, FAQCreate, FAQUpdate, FAQReorderItem,
+    # Blog
+    BlogPost, BlogPostCreate, BlogPostUpdate,
 )
 from ..utils.database import supabase
 from ..services.storage import upload_image, delete_image, upload_multiple_images
@@ -247,25 +249,42 @@ async def admin_update_product(product_id: UUID, product: ProductUpdate):
 
 @router.delete("/products/{product_id}")
 async def admin_delete_product(product_id: UUID):
-    """Delete a product"""
+    """Delete a product. If it has orders, deactivate instead of hard-deleting."""
     try:
-        # First get product images to delete from storage
+        # Check if product has any order references
+        order_check = supabase.table("order_items").select("id", count="exact").eq(
+            "product_id", str(product_id)
+        ).limit(1).execute()
+        
+        has_orders = (order_check.count or 0) > 0
+        
+        if has_orders:
+            # Soft-delete: deactivate the product instead
+            supabase.table("products").update({
+                "is_active": False,
+                "is_featured": False,
+                "is_on_sale": False,
+            }).eq("id", str(product_id)).execute()
+            
+            invalidate_cache("products")
+            invalidate_cache("product")
+            return {"message": "Product has existing orders and was deactivated instead of deleted", "soft_deleted": True}
+        
+        # Hard-delete: no orders reference this product
+        # First delete images from storage
         images_response = supabase.table("product_images").select("image_url").eq(
             "product_id", str(product_id)
         ).execute()
         
-        # Delete images from storage
         for img in images_response.data:
             await delete_image(img["image_url"])
         
-        # Delete product (cascades to images and variants)
         supabase.table("products").delete().eq("id", str(product_id)).execute()
         
-        # Invalidate product caches
         invalidate_cache("products")
         invalidate_cache("product")
         
-        return {"message": "Product deleted"}
+        return {"message": "Product deleted", "soft_deleted": False}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1642,6 +1661,117 @@ async def admin_delete_faq(faq_id: UUID):
         if not response.data:
             raise HTTPException(status_code=404, detail="FAQ not found")
         invalidate_cache("faqs:")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================================
+# BLOG MANAGEMENT
+# ===========================================
+
+def _generate_slug(title: str) -> str:
+    """Generate URL-friendly slug from title"""
+    import re
+    slug = title.lower().strip()
+    slug = re.sub(r'[^\w\s-]', '', slug)
+    slug = re.sub(r'[\s_]+', '-', slug)
+    slug = re.sub(r'-+', '-', slug).strip('-')
+    return slug
+
+
+@router.get("/blog", response_model=list[BlogPost])
+async def admin_get_blog_posts():
+    """Get all blog posts (admin view - includes unpublished)"""
+    try:
+        cached = get_cached("blog:admin:all", ttl=30)
+        if cached:
+            return [BlogPost(**p) for p in cached]
+
+        response = supabase.table("blog_posts").select("*").order(
+            "is_pinned", desc=True
+        ).order(
+            "display_order", desc=False
+        ).order(
+            "created_at", desc=True
+        ).execute()
+
+        posts = [BlogPost(**p) for p in response.data]
+        set_cached("blog:admin:all", [p.model_dump() for p in posts], ttl=30)
+        return posts
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/blog", response_model=BlogPost)
+async def admin_create_blog_post(post: BlogPostCreate):
+    """Create a new blog post"""
+    try:
+        post_data = post.model_dump()
+        
+        # Auto-generate slug if not provided
+        if not post_data.get("slug"):
+            post_data["slug"] = _generate_slug(post_data["title"])
+        
+        response = supabase.table("blog_posts").insert(post_data).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=400, detail="Failed to create blog post")
+        
+        invalidate_cache("blog:")
+        return BlogPost(**response.data[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "duplicate key" in error_msg.lower() or "23505" in error_msg:
+            raise HTTPException(status_code=409, detail="A blog post with this slug already exists")
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.put("/blog/{post_id}", response_model=BlogPost)
+async def admin_update_blog_post(post_id: UUID, post: BlogPostUpdate):
+    """Update a blog post"""
+    try:
+        update_data = post.model_dump(exclude_unset=True)
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        
+        response = supabase.table("blog_posts").update(update_data).eq(
+            "id", str(post_id)
+        ).execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Blog post not found")
+        
+        invalidate_cache("blog:")
+        return BlogPost(**response.data[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/blog/{post_id}")
+async def admin_delete_blog_post(post_id: UUID):
+    """Delete a blog post"""
+    try:
+        # Get hero image to clean up storage
+        post_response = supabase.table("blog_posts").select("hero_image_url").eq(
+            "id", str(post_id)
+        ).execute()
+        
+        if post_response.data and post_response.data[0].get("hero_image_url"):
+            await delete_image(post_response.data[0]["hero_image_url"])
+        
+        response = supabase.table("blog_posts").delete().eq("id", str(post_id)).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Blog post not found")
+        
+        invalidate_cache("blog:")
         return {"success": True}
     except HTTPException:
         raise

@@ -66,8 +66,8 @@ export default function Home() {
       <HeroSection initialData={data?.hero} />
       <ProductsSection initialData={data?.products} />
       <BannersSection banners={data?.banners} />
-      <ReviewsSection initialData={data?.reviews} />
       <FeaturedProduct />
+      <ReviewsSection initialData={data?.reviews} />
     </>
   )
 }

@@ -14,6 +14,7 @@ import {
   Tag,
   Warehouse,
   HelpCircle,
+  BookOpen,
 } from 'lucide-react'
 
 export default function AdminPage() {
@@ -29,6 +30,7 @@ export default function AdminPage() {
     { icon: Star, label: 'Reviews', href: '/admin/reviews', description: 'Product Reviews' },
     { icon: Warehouse, label: 'Inventory', href: '/admin/inventory', description: 'Stock & Ingredients' },
     { icon: HelpCircle, label: 'FAQ', href: '/admin/faq', description: 'Manage FAQ Questions' },
+    { icon: BookOpen, label: 'Blog', href: '/admin/blog', description: 'Manage Blog Posts' },
     { icon: Settings, label: 'Settings', href: '/admin/settings', description: 'Site Settings & Social Links' },
   ]
 

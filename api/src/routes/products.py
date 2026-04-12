@@ -139,12 +139,14 @@ async def get_product(slug: str):
         
         response = supabase.table("products").select(
             "*, product_images(*), product_variants(*)"
-        ).eq("slug", slug).eq("is_active", True).single().execute()
+        ).eq("slug", slug).eq("is_active", True).execute()
         
-        if not response.data:
+        if not response.data or len(response.data) == 0:
             raise HTTPException(status_code=404, detail="Product not found")
         
-        data = response.data
+        response.data = [response.data[0]]  # take first match
+        
+        data = response.data[0]
         data["images"] = data.pop("product_images", [])
         data["variants"] = data.pop("product_variants", [])
         

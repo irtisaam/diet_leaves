@@ -54,10 +54,21 @@ export default function AdminProductsPage() {
     try {
       const res = await fetch(`${API_URL}/api/admin/products/${id}`, { method: 'DELETE' })
       if (res.ok) {
-        setProducts(products.filter(p => p.id !== id))
+        const data = await res.json()
+        if (data.soft_deleted) {
+          alert('This product has existing orders and was deactivated instead of permanently deleted.')
+          // Refresh the list to show updated status
+          fetchProducts()
+        } else {
+          setProducts(products.filter(p => p.id !== id))
+        }
+      } else {
+        const err = await res.json().catch(() => ({ detail: 'Unknown error' }))
+        alert(`Failed to delete product: ${err.detail || 'Server error'}`)
       }
     } catch (error) {
       console.error('Failed to delete:', error)
+      alert('Failed to delete product. Please try again.')
     }
   }
 

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import routes
-from src.routes import products, orders, cart, admin, auth, settings, reviews, inventory
+from src.routes import products, orders, cart, admin, auth, settings, reviews, inventory, blog
 from src.services.storage import create_storage_bucket
 from src.middleware.performance import CacheMiddleware
 
@@ -65,6 +65,7 @@ app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Site Settings"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(inventory.router, prefix="/api/admin/inventory", tags=["Inventory"])
+app.include_router(blog.router, prefix="/api/blog", tags=["Blog"])
 
 @app.get("/")
 async def root():

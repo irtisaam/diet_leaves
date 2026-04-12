@@ -17,6 +17,7 @@ class CacheMiddleware(BaseHTTPMiddleware):
         "/api/products/on-sale": 30,  # 30 seconds for sale
         "/api/products/categories": 120,  # 2 minutes for categories
         "/api/products": 30,  # 30 seconds for product lists
+        "/api/blog": 60,  # 1 minute for blog listing
         "/api/settings/homepage-data": 30,  # 30 seconds for homepage aggregate
         "/api/settings/faqs": 60,           # 1 minute for public FAQs
         "/api/settings": 300,               # 5 minutes for settings
