@@ -7,11 +7,21 @@ import { useRouter } from 'next/navigation'
 import { useCart } from '@/lib/context/CartContext'
 import { ordersAPI } from '@/lib/api'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 export default function CheckoutPage() {
   const router = useRouter()
   const { cart, refreshCart } = useCart()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // Promo code state
+  const [promoCode, setPromoCode] = useState('')
+  const [promoApplying, setPromoApplying] = useState(false)
+  const [promoError, setPromoError] = useState('')
+  const [promoSuccess, setPromoSuccess] = useState('')
+  const [promoDiscount, setPromoDiscount] = useState(0)
+  const [appliedPromoCode, setAppliedPromoCode] = useState('')
 
   const [formData, setFormData] = useState({
     customer_email: '',
@@ -38,6 +48,42 @@ export default function CheckoutPage() {
     }))
   }
 
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim() || !cart) return
+    setPromoApplying(true)
+    setPromoError('')
+    setPromoSuccess('')
+    try {
+      const res = await fetch(`${API_URL}/api/orders/validate-promo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoCode.trim(), subtotal: Number(cart.subtotal || 0) }),
+      })
+      const data = await res.json()
+      if (data.valid) {
+        setPromoDiscount(Number(data.discount_amount))
+        setAppliedPromoCode(promoCode.trim().toUpperCase())
+        setPromoSuccess(data.message)
+      } else {
+        setPromoDiscount(0)
+        setAppliedPromoCode('')
+        setPromoError(data.message || 'Invalid promo code')
+      }
+    } catch {
+      setPromoError('Failed to validate promo code')
+    } finally {
+      setPromoApplying(false)
+    }
+  }
+
+  const handleRemovePromo = () => {
+    setPromoCode('')
+    setPromoDiscount(0)
+    setAppliedPromoCode('')
+    setPromoSuccess('')
+    setPromoError('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!cart || cart.items.length === 0) return
@@ -49,6 +95,7 @@ export default function CheckoutPage() {
       const orderData = {
         ...formData,
         payment_method: 'cod',
+        promo_code: appliedPromoCode || undefined,
         items: cart.items.map(item => ({
           product_id: item.product_id,
           variant_id: item.variant_id,
@@ -323,15 +370,43 @@ export default function CheckoutPage() {
             </div>
 
             {/* Discount Code */}
-            <div className="flex gap-2 mb-6">
-              <input
-                type="text"
-                placeholder="Discount code"
-                className="flex-1 px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-primary-500 text-gray-900"
-              />
-              <button className="px-6 py-3 border border-gray-300 rounded text-gray-400 hover:text-gray-600">
-                Apply
-              </button>
+            <div className="mb-6">
+              {appliedPromoCode ? (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded px-4 py-3">
+                  <div>
+                    <span className="text-green-700 font-medium text-sm">🎉 {appliedPromoCode}</span>
+                    <span className="text-green-600 text-sm ml-2">- Rs {promoDiscount.toFixed(0)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemovePromo}
+                    className="text-red-500 hover:text-red-700 text-sm font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Discount code"
+                      value={promoCode}
+                      onChange={(e) => { setPromoCode(e.target.value); setPromoError('') }}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded focus:outline-none focus:border-primary-500 text-gray-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyPromo}
+                      disabled={promoApplying || !promoCode.trim()}
+                      className="px-6 py-3 border border-gray-300 rounded text-gray-600 hover:text-gray-900 hover:border-gray-400 disabled:text-gray-400 disabled:hover:border-gray-300 transition-colors"
+                    >
+                      {promoApplying ? '...' : 'Apply'}
+                    </button>
+                  </div>
+                  {promoError && <p className="text-red-500 text-sm mt-2">{promoError}</p>}
+                </>
+              )}
             </div>
 
             {/* Totals */}
@@ -344,11 +419,17 @@ export default function CheckoutPage() {
                 <span>Shipping</span>
                 <span>{Number(cart.shipping || 0) === 0 ? 'FREE' : `Rs ${Number(cart.shipping || 0).toFixed(0)}`}</span>
               </div>
+              {promoDiscount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount</span>
+                  <span>- Rs {promoDiscount.toFixed(0)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-xl font-bold text-gray-900 pt-4">
                 <span>Total</span>
                 <span>
                   <span className="text-sm font-normal text-gray-500 mr-2">PKR</span>
-                  Rs {Number(cart.total || 0).toFixed(0)}
+                  Rs {(Number(cart.total || 0) - promoDiscount).toFixed(0)}
                 </span>
               </div>
             </div>

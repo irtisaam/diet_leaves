@@ -5,10 +5,83 @@ from fastapi import APIRouter, HTTPException, Header
 from typing import Optional
 from uuid import UUID
 from decimal import Decimal
-from ..models.schemas import Order, OrderCreate, OrderList, OrderItem
+from ..models.schemas import Order, OrderCreate, OrderList, OrderItem, PromoCodeValidateRequest, PromoCodeValidateResponse
 from ..utils.database import supabase
 
 router = APIRouter()
+
+
+def _validate_promo_code(code: str, subtotal: Decimal):
+    """Validate a promo code and compute discount. Returns (promo_row, discount_amount, message)."""
+    from datetime import datetime, timezone
+
+    resp = supabase.table("promo_codes").select("*").eq(
+        "code", code.strip().upper()
+    ).execute()
+
+    if not resp.data:
+        return None, Decimal("0"), "Invalid promo code"
+
+    promo = resp.data[0]
+
+    if not promo.get("is_active"):
+        return None, Decimal("0"), "This promo code is inactive"
+
+    now = datetime.now(timezone.utc)
+
+    if promo.get("valid_from"):
+        valid_from = datetime.fromisoformat(promo["valid_from"].replace("Z", "+00:00"))
+        if now < valid_from:
+            return None, Decimal("0"), "This promo code is not yet valid"
+
+    if promo.get("valid_until"):
+        valid_until = datetime.fromisoformat(promo["valid_until"].replace("Z", "+00:00"))
+        if now > valid_until:
+            return None, Decimal("0"), "This promo code has expired"
+
+    if promo.get("usage_limit") is not None and promo.get("usage_count", 0) >= promo["usage_limit"]:
+        return None, Decimal("0"), "This promo code has reached its usage limit"
+
+    min_order = Decimal(str(promo.get("min_order_amount") or 0))
+    if subtotal < min_order:
+        return None, Decimal("0"), f"Minimum order amount is Rs {min_order}"
+
+    discount_value = Decimal(str(promo["discount_value"]))
+    if promo["discount_type"] == "percentage":
+        discount = (subtotal * discount_value) / Decimal("100")
+        max_discount = promo.get("max_discount_amount")
+        if max_discount is not None:
+            max_d = Decimal(str(max_discount))
+            if discount > max_d:
+                discount = max_d
+    else:
+        discount = discount_value
+
+    # Discount can't exceed subtotal
+    if discount > subtotal:
+        discount = subtotal
+
+    return promo, discount, "Promo code applied successfully"
+
+
+@router.post("/validate-promo", response_model=PromoCodeValidateResponse)
+async def validate_promo_code(req: PromoCodeValidateRequest):
+    """Validate a promo code and return the discount amount"""
+    try:
+        promo, discount, message = _validate_promo_code(req.code, req.subtotal)
+        if promo is None:
+            return PromoCodeValidateResponse(valid=False, message=message)
+        return PromoCodeValidateResponse(
+            valid=True,
+            message=message,
+            discount_amount=discount,
+            promo_code_id=promo["id"],
+            code=promo["code"],
+            discount_type=promo["discount_type"],
+            discount_value=Decimal(str(promo["discount_value"])),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("", response_model=Order)
@@ -65,7 +138,20 @@ async def create_order(order: OrderCreate, x_session_id: Optional[str] = Header(
         if subtotal >= threshold:
             shipping_cost = Decimal("0")
         
-        total = subtotal + shipping_cost
+        # Apply promo code discount
+        discount_amount = Decimal("0")
+        promo_code_id = None
+        promo_code_str = None
+        
+        if order.promo_code:
+            promo, discount, msg = _validate_promo_code(order.promo_code, subtotal)
+            if promo is None:
+                raise HTTPException(status_code=400, detail=msg)
+            discount_amount = discount
+            promo_code_id = promo["id"]
+            promo_code_str = promo["code"]
+        
+        total = subtotal + shipping_cost - discount_amount
         
         # Create order
         order_data = {
@@ -83,7 +169,9 @@ async def create_order(order: OrderCreate, x_session_id: Optional[str] = Header(
             "customer_notes": order.customer_notes,
             "subtotal": float(subtotal),
             "shipping_cost": float(shipping_cost),
-            "discount_amount": 0,
+            "discount_amount": float(discount_amount),
+            "promo_code_id": promo_code_id,
+            "promo_code": promo_code_str,
             "total": float(total),
             "status": "pending",
             "payment_status": "pending"
@@ -111,6 +199,18 @@ async def create_order(order: OrderCreate, x_session_id: Optional[str] = Header(
         # Clear cart
         if x_session_id:
             supabase.table("cart_items").delete().eq("session_id", x_session_id).execute()
+        
+        # Track promo code usage
+        if promo_code_id:
+            supabase.table("promo_code_usage").insert({
+                "promo_code_id": promo_code_id,
+                "order_id": order_id,
+                "discount_applied": float(discount_amount),
+                "order_total": float(total),
+                "customer_email": order.customer_email,
+            }).execute()
+            # Increment usage count
+            supabase.rpc("increment_promo_usage", {"promo_id": promo_code_id}).execute()
         
         # Get complete order with items
         complete_order = supabase.table("orders").select("*, order_items(*)").eq(

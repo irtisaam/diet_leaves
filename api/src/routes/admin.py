@@ -29,6 +29,8 @@ from ..models.schemas import (
     FAQ, FAQCreate, FAQUpdate, FAQReorderItem,
     # Blog
     BlogPost, BlogPostCreate, BlogPostUpdate,
+    # Promo Codes
+    PromoCode, PromoCodeCreate, PromoCodeUpdate,
 )
 from ..utils.database import supabase
 from ..services.storage import upload_image, delete_image, upload_multiple_images
@@ -1507,6 +1509,25 @@ async def admin_dashboard():
         except Exception:
             pass
 
+        # ── Promo Code Summary ──
+        promo_summary = {"total_codes": 0, "active_codes": 0, "promo_orders": 0, "total_discount": 0.0}
+        try:
+            promos_resp = supabase.table("promo_codes").select("id, is_active").execute()
+            promo_list = promos_resp.data or []
+            promo_summary["total_codes"] = len(promo_list)
+            promo_summary["active_codes"] = len([p for p in promo_list if p.get("is_active")])
+
+            usage_resp = supabase.table("promo_code_usage").select(
+                "discount_applied"
+            ).execute()
+            usage_list = usage_resp.data or []
+            promo_summary["promo_orders"] = len(usage_list)
+            promo_summary["total_discount"] = round(
+                sum(float(u.get("discount_applied", 0)) for u in usage_list), 2
+            )
+        except Exception:
+            pass
+
         result = {
             # Summary cards
             "total_orders": total_orders,
@@ -1537,6 +1558,8 @@ async def admin_dashboard():
             "total_profit": round(total_profit, 2),
             # Inventory
             "inventory_summary": inv_summary,
+            # Promo codes
+            "promo_summary": promo_summary,
         }
         set_cached("dashboard_stats", result)
         return result
@@ -1775,5 +1798,241 @@ async def admin_delete_blog_post(post_id: UUID):
         return {"success": True}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===========================================
+# PROMO CODE CRUD
+# ===========================================
+
+@router.get("/promo-codes")
+async def admin_list_promo_codes():
+    """List all promo codes"""
+    try:
+        response = supabase.table("promo_codes").select("*").order(
+            "created_at", desc=True
+        ).execute()
+        return response.data or []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/promo-codes/{promo_id}")
+async def admin_get_promo_code(promo_id: UUID):
+    """Get a single promo code"""
+    try:
+        response = supabase.table("promo_codes").select("*").eq(
+            "id", str(promo_id)
+        ).single().execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Promo code not found")
+        return response.data
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/promo-codes", response_model=PromoCode)
+async def admin_create_promo_code(promo: PromoCodeCreate):
+    """Create a new promo code"""
+    try:
+        data = promo.model_dump(exclude_unset=True)
+        # Force uppercase code
+        data["code"] = data["code"].strip().upper()
+        # Convert Decimal to float for JSON
+        for key in ["discount_value", "min_order_amount", "max_discount_amount"]:
+            if key in data and data[key] is not None:
+                data[key] = float(data[key])
+        # Handle datetime
+        for key in ["valid_from", "valid_until"]:
+            if key in data and data[key] is not None:
+                data[key] = data[key].isoformat()
+
+        response = supabase.table("promo_codes").insert(data).execute()
+        if not response.data:
+            raise HTTPException(status_code=400, detail="Failed to create promo code")
+        return PromoCode(**response.data[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "promo_codes_code_unique" in error_msg:
+            raise HTTPException(status_code=409, detail="A promo code with this code already exists")
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.put("/promo-codes/{promo_id}", response_model=PromoCode)
+async def admin_update_promo_code(promo_id: UUID, promo: PromoCodeUpdate):
+    """Update a promo code"""
+    try:
+        data = promo.model_dump(exclude_unset=True)
+        if not data:
+            raise HTTPException(status_code=400, detail="No fields to update")
+        if "code" in data and data["code"]:
+            data["code"] = data["code"].strip().upper()
+        for key in ["discount_value", "min_order_amount", "max_discount_amount"]:
+            if key in data and data[key] is not None:
+                data[key] = float(data[key])
+        for key in ["valid_from", "valid_until"]:
+            if key in data and data[key] is not None:
+                data[key] = data[key].isoformat()
+
+        response = supabase.table("promo_codes").update(data).eq(
+            "id", str(promo_id)
+        ).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Promo code not found")
+        return PromoCode(**response.data[0])
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "promo_codes_code_unique" in error_msg:
+            raise HTTPException(status_code=409, detail="A promo code with this code already exists")
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.delete("/promo-codes/{promo_id}")
+async def admin_delete_promo_code(promo_id: UUID):
+    """Delete a promo code"""
+    try:
+        response = supabase.table("promo_codes").delete().eq(
+            "id", str(promo_id)
+        ).execute()
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Promo code not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/promo-codes/{promo_id}/toggle")
+async def admin_toggle_promo_code(promo_id: UUID):
+    """Toggle promo code active status"""
+    try:
+        current = supabase.table("promo_codes").select("is_active").eq(
+            "id", str(promo_id)
+        ).single().execute()
+        if not current.data:
+            raise HTTPException(status_code=404, detail="Promo code not found")
+
+        new_status = not current.data["is_active"]
+        response = supabase.table("promo_codes").update(
+            {"is_active": new_status}
+        ).eq("id", str(promo_id)).execute()
+        return {"is_active": new_status}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================================
+# PROMO CODE ANALYTICS
+# ===========================================
+
+@router.get("/promo-analytics")
+async def admin_promo_analytics():
+    """Get comprehensive promo code sales analytics"""
+    from datetime import datetime
+    try:
+        # Get all promo codes
+        promos_resp = supabase.table("promo_codes").select("*").execute()
+        all_promos = promos_resp.data or []
+
+        # Get all usage records with order details
+        usage_resp = supabase.table("promo_code_usage").select(
+            "*, orders:order_id(id, order_number, total, subtotal, status, created_at, customer_email, customer_name)"
+        ).execute()
+        all_usage = usage_resp.data or []
+
+        # Get order items for promo orders
+        promo_order_ids = list(set(
+            u["order_id"] for u in all_usage if u.get("order_id")
+        ))
+
+        order_items_map: dict = {}
+        if promo_order_ids:
+            oi_resp = supabase.table("order_items").select(
+                "order_id, product_id, product_name, quantity, unit_price, total_price"
+            ).in_("order_id", promo_order_ids).execute()
+            for oi in (oi_resp.data or []):
+                order_items_map.setdefault(oi["order_id"], []).append(oi)
+
+        # Build per-promo stats
+        promo_map = {p["id"]: p for p in all_promos}
+        promo_stats = []
+
+        for promo in all_promos:
+            pid = promo["id"]
+            usages = [u for u in all_usage if u.get("promo_code_id") == pid]
+            total_discount = sum(float(u.get("discount_applied", 0)) for u in usages)
+            total_revenue = sum(float(u.get("order_total", 0)) for u in usages)
+            orders_count = len(usages)
+
+            # Products sold via this promo
+            product_sales: dict = {}
+            for u in usages:
+                oid = u.get("order_id")
+                items = order_items_map.get(oid, [])
+                for item in items:
+                    p_name = item.get("product_name", "Unknown")
+                    entry = product_sales.setdefault(p_name, {"quantity": 0, "revenue": 0.0})
+                    entry["quantity"] += int(item.get("quantity", 0))
+                    entry["revenue"] += float(item.get("total_price", 0))
+
+            products_list = [
+                {"name": name, "quantity": data["quantity"], "revenue": round(data["revenue"], 2)}
+                for name, data in sorted(product_sales.items(), key=lambda x: x[1]["revenue"], reverse=True)
+            ]
+
+            # Recent usage details
+            recent_usage = []
+            for u in sorted(usages, key=lambda x: x.get("used_at", ""), reverse=True)[:20]:
+                order_data = u.get("orders", {}) or {}
+                recent_usage.append({
+                    "order_number": order_data.get("order_number"),
+                    "customer_name": order_data.get("customer_name"),
+                    "customer_email": u.get("customer_email"),
+                    "discount_applied": float(u.get("discount_applied", 0)),
+                    "order_total": float(u.get("order_total", 0)),
+                    "order_status": order_data.get("status"),
+                    "used_at": u.get("used_at"),
+                })
+
+            promo_stats.append({
+                "id": pid,
+                "code": promo["code"],
+                "description": promo.get("description"),
+                "discount_type": promo["discount_type"],
+                "discount_value": float(promo["discount_value"]),
+                "is_active": promo["is_active"],
+                "usage_count": promo.get("usage_count", 0),
+                "usage_limit": promo.get("usage_limit"),
+                "total_orders": orders_count,
+                "total_discount_given": round(total_discount, 2),
+                "total_revenue": round(total_revenue, 2),
+                "products_sold": products_list,
+                "recent_usage": recent_usage,
+            })
+
+        # Summary
+        total_promo_orders = len(all_usage)
+        total_discount_given = round(sum(float(u.get("discount_applied", 0)) for u in all_usage), 2)
+        total_promo_revenue = round(sum(float(u.get("order_total", 0)) for u in all_usage), 2)
+
+        return {
+            "summary": {
+                "total_promo_codes": len(all_promos),
+                "active_promo_codes": len([p for p in all_promos if p.get("is_active")]),
+                "total_promo_orders": total_promo_orders,
+                "total_discount_given": total_discount_given,
+                "total_promo_revenue": total_promo_revenue,
+            },
+            "promo_stats": sorted(promo_stats, key=lambda x: x["total_orders"], reverse=True),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

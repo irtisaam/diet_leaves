@@ -258,6 +258,7 @@ class OrderCreate(BaseModel):
     billing_city: Optional[str] = None
     payment_method: str = "cod"
     customer_notes: Optional[str] = None
+    promo_code: Optional[str] = None
     items: List[OrderItemCreate]
 
 class OrderUpdate(BaseModel):
@@ -284,6 +285,8 @@ class Order(BaseModel):
     shipping_cost: Decimal
     discount_amount: Decimal
     total: Decimal
+    promo_code_id: Optional[UUID] = None
+    promo_code: Optional[str] = None
     payment_method: str
     payment_status: str
     status: str
@@ -396,6 +399,64 @@ class FAQ(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+# ===========================================
+# PROMO CODE MODELS
+# ===========================================
+
+class PromoCodeCreate(BaseModel):
+    code: str
+    description: Optional[str] = None
+    discount_type: str = "percentage"  # 'percentage' or 'flat'
+    discount_value: Decimal
+    min_order_amount: Optional[Decimal] = Decimal("0")
+    max_discount_amount: Optional[Decimal] = None
+    usage_limit: Optional[int] = None
+    is_active: bool = True
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+class PromoCodeUpdate(BaseModel):
+    code: Optional[str] = None
+    description: Optional[str] = None
+    discount_type: Optional[str] = None
+    discount_value: Optional[Decimal] = None
+    min_order_amount: Optional[Decimal] = None
+    max_discount_amount: Optional[Decimal] = None
+    usage_limit: Optional[int] = None
+    is_active: Optional[bool] = None
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+class PromoCode(BaseModel):
+    id: UUID
+    code: str
+    description: Optional[str] = None
+    discount_type: str
+    discount_value: Decimal
+    min_order_amount: Optional[Decimal] = Decimal("0")
+    max_discount_amount: Optional[Decimal] = None
+    usage_limit: Optional[int] = None
+    usage_count: int = 0
+    is_active: bool
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+class PromoCodeValidateRequest(BaseModel):
+    code: str
+    subtotal: Decimal
+
+class PromoCodeValidateResponse(BaseModel):
+    valid: bool
+    message: str
+    discount_amount: Decimal = Decimal("0")
+    promo_code_id: Optional[UUID] = None
+    code: Optional[str] = None
+    discount_type: Optional[str] = None
+    discount_value: Optional[Decimal] = None
 
 
 # ===========================================

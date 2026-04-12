@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, Package, ShoppingCart, DollarSign, TrendingUp, Eye,
   BarChart2, TrendingDown, Users, Star, Calendar, Warehouse,
-  ArrowUpRight, ArrowDownRight, Clock, Award, AlertTriangle
+  ArrowUpRight, ArrowDownRight, Clock, Award, AlertTriangle, Ticket
 } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -33,6 +33,7 @@ interface DashboardStats {
   top_by_revenue: ProductAnalytic[]
   total_cost: number; total_profit: number
   inventory_summary: { total_items: number; low_stock: number; expired: number; stock_value: number }
+  promo_summary: { total_codes: number; active_codes: number; promo_orders: number; total_discount: number }
 }
 
 function MiniBar({ data, maxVal, color }: { data: { label: string; value: number }[]; maxVal: number; color: string }) {
@@ -440,6 +441,44 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* ── Promo Code Summary ── */}
+        {stats.promo_summary && stats.promo_summary.total_codes > 0 && (
+          <div className="bg-[#111] border border-[#222] rounded-xl p-5 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Ticket className="w-4 h-4 text-purple-400" />
+                <h3 className="text-white font-semibold text-sm">Promo Code Sales</h3>
+              </div>
+              <Link href="/admin/promo-codes/analytics" className="text-primary-500 text-xs hover:text-primary-400 flex items-center gap-1">
+                View Details <ArrowUpRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-gray-500 text-xs">Total Codes</p>
+                <p className="text-xl font-bold text-white">{stats.promo_summary.total_codes}</p>
+                <p className="text-gray-600 text-xs">{stats.promo_summary.active_codes} active</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Promo Orders</p>
+                <p className="text-xl font-bold text-blue-400">{stats.promo_summary.promo_orders}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Total Discounts Given</p>
+                <p className="text-xl font-bold text-amber-400">PKR {stats.promo_summary.total_discount.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs">Avg Discount/Order</p>
+                <p className="text-xl font-bold text-purple-400">
+                  PKR {stats.promo_summary.promo_orders > 0
+                    ? Math.round(stats.promo_summary.total_discount / stats.promo_summary.promo_orders).toLocaleString()
+                    : '0'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Quick Actions ── */}
         <div className="bg-[#111] border border-[#222] rounded-xl p-5">
           <h3 className="text-white font-semibold text-sm mb-4">Quick Actions</h3>
@@ -448,6 +487,7 @@ export default function DashboardPage() {
               { href: '/admin/products', label: 'Products', icon: Package, color: 'text-emerald-400' },
               { href: '/admin/orders', label: 'Orders', icon: ShoppingCart, color: 'text-blue-400' },
               { href: '/admin/inventory', label: 'Inventory', icon: Warehouse, color: 'text-amber-400' },
+              { href: '/admin/promo-codes', label: 'Promo Codes', icon: Ticket, color: 'text-purple-400' },
               { href: '/', label: 'View Store', icon: Eye, color: 'text-purple-400' },
             ].map(a => (
               <Link key={a.href} href={a.href} className="flex items-center gap-3 p-3 rounded-xl bg-[#0a0a0a] border border-[#1a1a1a] hover:border-primary-500/30 transition-colors group">
