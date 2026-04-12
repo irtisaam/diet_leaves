@@ -401,6 +401,8 @@ export default function EditProductPage() {
         ...formData,
         category_id: formData.category_id || null,
         compare_at_price: formData.compare_at_price || null,
+        sku: formData.sku || null,
+        servings_per_container: formData.servings_per_container || null,
         description: nutritionalImage 
           ? `${formData.description}\n\n[nutritional_image:${nutritionalImage}]`
           : formData.description

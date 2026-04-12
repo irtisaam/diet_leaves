@@ -1,7 +1,7 @@
 """
 Pydantic Models for Diet Leaves API
 """
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List, Any
 from datetime import datetime
 from decimal import Decimal
@@ -118,6 +118,20 @@ class ProductBase(BaseModel):
     nutritional_info: Optional[NutritionalInfo] = None
     ingredients: Optional[str] = None
     servings_per_container: Optional[int] = None
+
+    @field_validator('sku', mode='before')
+    @classmethod
+    def empty_sku_to_none(cls, v):
+        if v == '':
+            return None
+        return v
+
+    @field_validator('servings_per_container', mode='before')
+    @classmethod
+    def empty_servings_to_none(cls, v):
+        if v == '' or v == 0:
+            return None
+        return v
 
 class ProductCreate(ProductBase):
     category_id: Optional[UUID] = None

@@ -24,32 +24,34 @@ def get_cached(key: str, ttl: int = 300) -> Optional[Any]:
     
     Args:
         key: Cache key
-        ttl: Time to live in seconds (used to validate expiry)
+        ttl: Default time to live in seconds (overridden by stored ttl)
     
     Returns:
         Cached value or None if not found/expired
     """
     if key in _cache:
         entry = _cache[key]
-        if time.time() - entry["timestamp"] < ttl:
+        effective_ttl = entry.get("ttl", ttl)
+        if time.time() - entry["timestamp"] < effective_ttl:
             return entry["value"]
         else:
-            # Expired, remove from cache
             del _cache[key]
     return None
 
 
-def set_cached(key: str, value: Any) -> None:
+def set_cached(key: str, value: Any, ttl: int = 300) -> None:
     """
     Set a value in the cache
     
     Args:
         key: Cache key
         value: Value to cache
+        ttl: Time to live in seconds (stored for get_cached validation)
     """
     _cache[key] = {
         "value": value,
-        "timestamp": time.time()
+        "timestamp": time.time(),
+        "ttl": ttl,
     }
 
 

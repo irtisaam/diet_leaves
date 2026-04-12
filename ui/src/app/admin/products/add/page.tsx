@@ -301,6 +301,8 @@ export default function AddProductPage() {
         ...formData,
         category_id: formData.category_id || null,
         compare_at_price: formData.compare_at_price || null,
+        sku: formData.sku || null,
+        servings_per_container: formData.servings_per_container || null,
         images: images.map(img => ({
           image_url: img.image_url,
           alt_text: img.alt_text,
