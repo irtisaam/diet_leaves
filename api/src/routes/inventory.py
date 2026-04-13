@@ -1,7 +1,7 @@
 """
 Inventory Management Routes — with Batch Tracking
 """
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel
@@ -9,8 +9,9 @@ from decimal import Decimal
 from datetime import date, datetime, timedelta
 from ..utils.database import supabase
 from ..utils.cache import get_cached, set_cached, invalidate_cache
+from ..utils.auth import require_admin
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 SCHEMA_RELOAD_MSG = (
     "Inventory tables not found in database schema cache. "

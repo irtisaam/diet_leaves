@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import CartDrawer from '@/components/cart/CartDrawer'
 import { CartProvider } from '@/lib/context/CartContext'
+import { AuthProvider } from '@/lib/context/AuthContext'
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -61,6 +62,7 @@ export default async function RootLayout({
         <style dangerouslySetInnerHTML={{ __html: themeCSS }} />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
+        <AuthProvider>
         <CartProvider>
           <Header />
           <main className="min-h-screen">
@@ -69,6 +71,7 @@ export default async function RootLayout({
           <Footer />
           <CartDrawer />
         </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   )

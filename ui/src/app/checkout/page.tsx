@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/lib/context/CartContext'
+import { useAuth } from '@/lib/context/AuthContext'
 import { ordersAPI } from '@/lib/api'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -12,6 +13,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 export default function CheckoutPage() {
   const router = useRouter()
   const { cart, refreshCart } = useCart()
+  const { user, isAuthenticated } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,6 +39,20 @@ export default function CheckoutPage() {
     customer_notes: '',
     email_offers: false,
   })
+
+  // Pre-fill form if user is logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setFormData(prev => ({
+        ...prev,
+        customer_email: user.email || prev.customer_email,
+        customer_name: user.full_name || prev.customer_name,
+        customer_phone: user.phone || prev.customer_phone,
+        shipping_address: user.address || prev.shipping_address,
+        shipping_city: user.city || prev.shipping_city,
+      }))
+    }
+  }, [isAuthenticated, user])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -96,6 +112,7 @@ export default function CheckoutPage() {
         ...formData,
         payment_method: 'cod',
         promo_code: appliedPromoCode || undefined,
+        email_notifications: formData.email_offers,
         items: cart.items.map(item => ({
           product_id: item.product_id,
           variant_id: item.variant_id,
@@ -145,7 +162,7 @@ export default function CheckoutPage() {
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-semibold text-gray-900">Contact</h2>
-                  <Link href="/account/login" className="text-primary-600 text-sm">Sign in</Link>
+                  {!isAuthenticated && <Link href="/account/login" className="text-primary-600 text-sm">Sign in</Link>}
                 </div>
                 
                 <input

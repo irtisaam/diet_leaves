@@ -21,25 +21,34 @@ class BaseResponse(BaseModel):
 # USER / AUTH MODELS
 # ===========================================
 
+class UserRegister(BaseModel):
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    password: str = Field(..., min_length=6)
+    full_name: Optional[str] = None
+
 class UserCreate(BaseModel):
+    """Legacy — kept for backwards compatibility."""
     email: EmailStr
     password: str = Field(..., min_length=6)
     full_name: Optional[str] = None
     phone: Optional[str] = None
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    identifier: str = Field(..., description="Email or phone number")
     password: str
 
 class UserProfile(BaseModel):
     id: UUID
-    email: str
+    email: Optional[str] = None
     full_name: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
     country: str = "Pakistan"
     is_admin: bool = False
+    role: str = "customer"
+    email_notifications: bool = False
     created_at: datetime
 
 class UserProfileUpdate(BaseModel):
@@ -47,11 +56,19 @@ class UserProfileUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
+    email_notifications: Optional[bool] = None
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserProfile
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=6)
 
 
 # ===========================================
@@ -259,6 +276,7 @@ class OrderCreate(BaseModel):
     payment_method: str = "cod"
     customer_notes: Optional[str] = None
     promo_code: Optional[str] = None
+    email_notifications: bool = False
     items: List[OrderItemCreate]
 
 class OrderUpdate(BaseModel):
@@ -294,6 +312,7 @@ class Order(BaseModel):
     shipping_carrier: Optional[str] = None
     admin_notes: Optional[str] = None
     customer_notes: Optional[str] = None
+    email_notifications: bool = False
     created_at: datetime
     updated_at: datetime
     items: List[OrderItem] = []

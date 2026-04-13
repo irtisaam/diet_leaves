@@ -108,9 +108,31 @@ export interface Order {
   status: string
   tracking_number: string | null
   shipping_carrier: string | null
+  email_notifications: boolean
   created_at: string
   updated_at: string
   items: OrderItem[]
+}
+
+// User / Auth Types
+export interface User {
+  id: string
+  email: string | null
+  full_name: string | null
+  phone: string | null
+  address: string | null
+  city: string | null
+  country: string
+  is_admin: boolean
+  role: string
+  email_notifications: boolean
+  created_at: string
+}
+
+export interface AuthResponse {
+  access_token: string
+  token_type: string
+  user: User
 }
 
 export interface OrderItem {
@@ -211,19 +233,6 @@ export interface Review {
   title: string | null
   review_text: string | null
   is_verified_purchase: boolean
-  created_at: string
-}
-
-// User Types
-export interface User {
-  id: string
-  email: string
-  full_name: string | null
-  phone: string | null
-  address: string | null
-  city: string | null
-  country: string
-  is_admin: boolean
   created_at: string
 }
 

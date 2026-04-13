@@ -1,6 +1,7 @@
 """
 Admin Routes - Full CRUD for all entities
 """
+from uuid import uuid4 as uuid4_gen
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Body
 from typing import Optional, List
 from uuid import UUID
@@ -35,8 +36,9 @@ from ..models.schemas import (
 from ..utils.database import supabase
 from ..services.storage import upload_image, delete_image, upload_multiple_images
 from ..utils.cache import get_cached, set_cached, invalidate_cache
+from ..utils.auth import require_admin
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 
 def _try_query(query_fn, fallback_fn=None):
@@ -669,6 +671,19 @@ async def admin_update_order(order_id: UUID, order: OrderUpdate):
         data = complete.data
         data["items"] = data.pop("order_items", [])
 
+        # Send email notification if opted in and status changed
+        if new_status and new_status != old_status and data.get("email_notifications"):
+            try:
+                from ..services.email import send_order_status_email
+                send_order_status_email(
+                    data["customer_email"],
+                    data["order_number"],
+                    new_status,
+                    data.get("tracking_number"),
+                )
+            except Exception:
+                pass  # non-critical
+
         return Order(**data)
     except HTTPException:
         raise
@@ -1281,12 +1296,99 @@ async def admin_get_users():
 async def admin_toggle_admin(user_id: UUID, is_admin: bool = True):
     """Toggle admin status for a user"""
     try:
-        supabase.table("profiles").update({"is_admin": is_admin}).eq(
-            "id", str(user_id)
-        ).execute()
+        supabase.table("profiles").update({
+            "is_admin": is_admin,
+            "role": "admin" if is_admin else "customer",
+        }).eq("id", str(user_id)).execute()
         return {"message": f"Admin status set to {is_admin}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/users")
+async def admin_create_user(body: dict = Body(...)):
+    """Create a new user (admin can set role)."""
+    from ..utils.auth import hash_password
+
+    email = (body.get("email") or "").strip().lower()
+    phone = (body.get("phone") or "").strip()
+    password = body.get("password", "")
+    full_name = body.get("full_name", "")
+    role = body.get("role", "customer")
+
+    if not email and not phone:
+        raise HTTPException(status_code=400, detail="Email or phone is required")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if role not in ("customer", "admin"):
+        raise HTTPException(status_code=400, detail="Role must be 'customer' or 'admin'")
+
+    # Check duplicates
+    if email:
+        existing = supabase.table("profiles").select("id").eq("email", email).execute()
+        if existing.data:
+            raise HTTPException(status_code=409, detail="An account with this email already exists")
+    if phone:
+        existing = supabase.table("profiles").select("id").eq("phone", phone).execute()
+        if existing.data:
+            raise HTTPException(status_code=409, detail="An account with this phone already exists")
+
+    profile_data = {
+        "id": str(uuid4_gen()),
+        "email": email or None,
+        "phone": phone or None,
+        "full_name": full_name,
+        "password_hash": hash_password(password),
+        "role": role,
+        "is_admin": role == "admin",
+        "country": "Pakistan",
+    }
+
+    resp = supabase.table("profiles").insert(profile_data).execute()
+    if not resp.data:
+        raise HTTPException(status_code=500, detail="Failed to create user")
+    return {"user": UserProfile(**resp.data[0]).model_dump(), "message": "User created successfully"}
+
+
+@router.put("/users/{user_id}")
+async def admin_update_user(user_id: UUID, body: dict = Body(...)):
+    """Update a user's profile (admin can change role, reset password)."""
+    from ..utils.auth import hash_password
+
+    update_data = {}
+    if "full_name" in body:
+        update_data["full_name"] = body["full_name"]
+    if "email" in body:
+        update_data["email"] = (body["email"] or "").strip().lower() or None
+    if "phone" in body:
+        update_data["phone"] = (body["phone"] or "").strip() or None
+    if "role" in body:
+        role = body["role"]
+        if role not in ("customer", "admin"):
+            raise HTTPException(status_code=400, detail="Role must be 'customer' or 'admin'")
+        update_data["role"] = role
+        update_data["is_admin"] = role == "admin"
+    if "password" in body and body["password"]:
+        if len(body["password"]) < 6:
+            raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+        update_data["password_hash"] = hash_password(body["password"])
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    resp = supabase.table("profiles").update(update_data).eq("id", str(user_id)).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user": UserProfile(**resp.data[0]).model_dump(), "message": "User updated successfully"}
+
+
+@router.delete("/users/{user_id}")
+async def admin_delete_user(user_id: UUID):
+    """Delete a user account."""
+    resp = supabase.table("profiles").delete().eq("id", str(user_id)).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deleted successfully"}
 
 
 # ===========================================

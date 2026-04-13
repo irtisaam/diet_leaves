@@ -16,6 +16,7 @@ import {
   HelpCircle,
   BookOpen,
   Ticket,
+  ShieldCheck,
 } from 'lucide-react'
 
 export default function AdminPage() {
@@ -33,6 +34,7 @@ export default function AdminPage() {
     { icon: HelpCircle, label: 'FAQ', href: '/admin/faq', description: 'Manage FAQ Questions' },
     { icon: BookOpen, label: 'Blog', href: '/admin/blog', description: 'Manage Blog Posts' },
     { icon: Ticket, label: 'Promo Codes', href: '/admin/promo-codes', description: 'Discounts & Coupons' },
+    { icon: ShieldCheck, label: 'User Management', href: '/admin/users', description: 'Create & Manage Users' },
     { icon: Settings, label: 'Settings', href: '/admin/settings', description: 'Site Settings & Social Links' },
   ]
 

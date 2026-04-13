@@ -26,13 +26,23 @@ async function fetchAPI<T>(endpoint: string, options: FetchOptions = {}): Promis
   const sessionId = typeof window !== 'undefined' 
     ? localStorage.getItem('cart_session_id') || generateSessionId()
     : ''
-  
+
+  // Get auth token
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Session-ID': sessionId,
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const response = await fetch(url, {
     ...fetchOptions,
     cache: 'no-store',  // Always fetch fresh data to prevent stale nav/settings
     headers: {
-      'Content-Type': 'application/json',
-      'X-Session-ID': sessionId,
+      ...headers,
       ...fetchOptions.headers,
     },
   })
@@ -145,13 +155,19 @@ export const settingsAPI = {
 
 // Auth API
 export const authAPI = {
-  login: (email: string, password: string) =>
+  login: (identifier: string, password: string) =>
     fetchAPI('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
+    }),
+
+  adminLogin: (identifier: string, password: string) =>
+    fetchAPI('/api/auth/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ identifier, password }),
     }),
   
-  signup: (data: { email: string; password: string; full_name?: string }) =>
+  signup: (data: { email?: string; phone?: string; password: string; full_name?: string }) =>
     fetchAPI('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -163,11 +179,26 @@ export const authAPI = {
   getProfile: () =>
     fetchAPI('/api/auth/me'),
   
-  updateProfile: (data: { full_name?: string; phone?: string; address?: string; city?: string }) =>
+  updateProfile: (data: { full_name?: string; phone?: string; address?: string; city?: string; email_notifications?: boolean }) =>
     fetchAPI('/api/auth/me', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+
+  forgotPassword: (email: string) =>
+    fetchAPI('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+
+  resetPassword: (token: string, new_password: string) =>
+    fetchAPI('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password }),
+    }),
+
+  myOrders: () =>
+    fetchAPI('/api/orders/my-orders'),
 }
 
 // Reviews API

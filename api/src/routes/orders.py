@@ -1,12 +1,13 @@
 """
 Orders Routes
 """
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Depends
 from typing import Optional
 from uuid import UUID
 from decimal import Decimal
 from ..models.schemas import Order, OrderCreate, OrderList, OrderItem, PromoCodeValidateRequest, PromoCodeValidateResponse
 from ..utils.database import supabase
+from ..utils.auth import get_current_user, get_current_user_optional
 
 router = APIRouter()
 
@@ -85,7 +86,11 @@ async def validate_promo_code(req: PromoCodeValidateRequest):
 
 
 @router.post("", response_model=Order)
-async def create_order(order: OrderCreate, x_session_id: Optional[str] = Header(None)):
+async def create_order(
+    order: OrderCreate,
+    x_session_id: Optional[str] = Header(None),
+    current_user: Optional[dict] = Depends(get_current_user_optional),
+):
     """Create a new order"""
     try:
         # Calculate totals
@@ -174,8 +179,13 @@ async def create_order(order: OrderCreate, x_session_id: Optional[str] = Header(
             "promo_code": promo_code_str,
             "total": float(total),
             "status": "pending",
-            "payment_status": "pending"
+            "payment_status": "pending",
+            "email_notifications": order.email_notifications,
         }
+
+        # Link order to authenticated user if logged in
+        if current_user:
+            order_data["user_id"] = current_user["id"]
         
         response = supabase.table("orders").insert(order_data).execute()
         
@@ -219,6 +229,23 @@ async def create_order(order: OrderCreate, x_session_id: Optional[str] = Header(
         
         order_response = complete_order.data
         order_response["items"] = order_response.pop("order_items", [])
+
+        # Send order confirmation email if opted in
+        if order.email_notifications:
+            try:
+                from ..services.email import send_order_placed_email
+                items_html = "".join(
+                    f"<p>{it['product_name']} x{it['quantity']} — Rs {float(it['total_price']):.0f}</p>"
+                    for it in order_response["items"]
+                )
+                send_order_placed_email(
+                    order.customer_email,
+                    order_response["order_number"],
+                    float(total),
+                    items_html,
+                )
+            except Exception:
+                pass  # non-critical
         
         return Order(**order_response)
     except HTTPException:
@@ -243,6 +270,24 @@ async def get_orders(user_id: Optional[UUID] = None):
             o["items"] = o.pop("order_items", [])
             orders.append(Order(**o))
         
+        return OrderList(orders=orders, total=len(orders))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/my-orders", response_model=OrderList)
+async def my_orders(user: dict = Depends(get_current_user)):
+    """Get all orders for the authenticated customer."""
+    try:
+        resp = supabase.table("orders").select("*, order_items(*)").eq(
+            "user_id", user["id"]
+        ).order("created_at", desc=True).execute()
+
+        orders = []
+        for o in resp.data:
+            o["items"] = o.pop("order_items", [])
+            orders.append(Order(**o))
+
         return OrderList(orders=orders, total=len(orders))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

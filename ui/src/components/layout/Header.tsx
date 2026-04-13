@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Search, User, ShoppingCart, Menu, X } from 'lucide-react'
+import { Search, User, ShoppingCart, Menu, X, LogOut } from 'lucide-react'
 import { useCart } from '@/lib/context/CartContext'
+import { useAuth } from '@/lib/context/AuthContext'
 import { settingsAPI } from '@/lib/api'
 import { NavigationItem } from '@/types'
 
 export default function Header() {
   const { cart, openCart } = useCart()
+  const { user, isAuthenticated, logout } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [navigation, setNavigation] = useState<NavigationItem[]>([])
   const [announcementText, setAnnouncementText] = useState('FREE SHIPPING ON ORDERS ABOVE RS 2000')
@@ -81,7 +83,7 @@ export default function Header() {
                 <Search className="h-5 w-5" />
               </button>
               
-              <Link href="/account" className="text-gray-300 hover:text-primary transition-colors">
+              <Link href="/account" className="text-gray-300 hover:text-primary transition-colors" title={isAuthenticated ? (user?.full_name || 'Account') : 'Sign In'}>
                 <User className="h-5 w-5" />
               </Link>
               
