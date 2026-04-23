@@ -34,17 +34,21 @@ app = FastAPI(
 )
 
 # CORS Configuration
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3000",
+    os.getenv("FRONTEND_URL", "http://localhost:3000"),
+]
+# Allow any Vercel deployment URL automatically
+extra_cors = os.getenv("EXTRA_CORS_ORIGINS", "")
+if extra_cors:
+    allowed_origins += [o.strip() for o in extra_cors.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:3002",
-        os.getenv("FRONTEND_URL", "http://localhost:3000")
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -12,7 +12,7 @@ DROP FUNCTION IF EXISTS handle_new_user();
 -- 2. Drop the foreign key constraint
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 
--- 3. Allow the id column to accept any UUID (not just auth.users IDs)
+-- 3. Allow the idcd column to accept any UUID (not just auth.users IDs)
 ALTER TABLE profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
 -- 4. Disable RLS so service-role inserts work without auth context
