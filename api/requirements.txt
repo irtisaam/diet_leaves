@@ -5,7 +5,7 @@ fastapi==0.109.0
 uvicorn[standard]==0.27.0
 
 # Database
-supabase==2.3.4
+supabase==2.10.0
 python-dotenv==1.0.0
 
 # Authentication & Security
@@ -17,9 +17,6 @@ python-multipart==0.0.6
 pydantic==2.5.3
 pydantic-settings==2.1.0
 email-validator==2.1.0
-
-# HTTP Client
-httpx==0.25.2
 
 # CORS
 starlette==0.35.1
