@@ -2,10 +2,14 @@
 Supabase Database Connection
 """
 import os
+from pathlib import Path
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env from repo root (diet_leaves/.env) or api/.env
+_repo_root = Path(__file__).resolve().parents[3]
+load_dotenv(_repo_root / ".env")
+load_dotenv(_repo_root / "api" / ".env")
 
 # Supabase configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
